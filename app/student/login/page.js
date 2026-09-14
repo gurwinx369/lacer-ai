@@ -9,10 +9,9 @@ export const metadata = {
 
 export default async function StudentLoginPage() {
   // If already authenticated as a student, redirect to their dashboard.
-  // (Student dashboard is not built yet — redirect to root for now.)
   const session = await getSession();
   if (session?.role === 'student') {
-    redirect('/');
+    redirect('/student/dashboard');
   }
 
   return (

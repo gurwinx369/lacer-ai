@@ -29,9 +29,8 @@ export default function StudentLoginForm() {
         return;
       }
 
-      // Student dashboard is not yet implemented.
-      // This redirect will be updated by the student developer.
-      router.push('/');
+      // Redirect to the student dashboard
+      router.push('/student/dashboard');
       router.refresh();
     } catch {
       setError('Network error. Please check your connection and try again.');
