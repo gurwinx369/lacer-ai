@@ -129,9 +129,10 @@ async function runTests() {
     assert(course.generatedStructure.levels[0].concepts[0].learningObjectives[0] === 'Obj1', 'Objectives edited');
     assert(course.videoChunks[0].startSeconds === 20, 'Video chunk preserved');
 
-    // 5. Progression Undo Preservation and Dependency Recalculation
-    // Manually mark level 1 taught
-    course.progression = [{ levelOrder: 1, completedConceptOrders: [1, 2], updatedAt: new Date() }];
+    // 5. Progression and student data preservation
+    // Under the correct rule: each level unlocks on its OWN levelTaught flag.
+    // L1 taught does NOT unlock L2 — L2 requires its own levelTaught.
+    course.progression = [{ levelOrder: 1, levelTaught: true, completedConceptOrders: [1, 2], updatedAt: new Date() }];
     course.confirmedAt = new Date();
     await course.save();
 
@@ -143,18 +144,27 @@ async function runTests() {
     });
     await ConceptMastery.create({ student, course: course._id, conceptMastery: {} });
 
-    // Verify dependent unlock logic
-    let unlockStatus = isLevelUnlockedForStudents(course.generatedStructure.levels, course.progression, 2);
-    assert(unlockStatus === true, 'Level 2 unlocked when Level 1 is taught');
+    // L1 taught → L1 unlocked; L2 NOT taught → L2 locked
+    assert(isLevelUnlockedForStudents(course.generatedStructure.levels, course.progression, 1) === true,
+      'Level 1 unlocked when Level 1 is taught');
+    assert(isLevelUnlockedForStudents(course.generatedStructure.levels, course.progression, 2) === false,
+      'Level 2 locked (L2 levelTaught not set, only L1 is taught)');
 
-    // Progression undo
-    course.progression[0].completedConceptOrders = [2]; // Untaught concept 1
+    // Now mark L2 taught too
+    course.progression.push({ levelOrder: 2, levelTaught: true, completedConceptOrders: [], updatedAt: new Date() });
     await course.save();
+    assert(isLevelUnlockedForStudents(course.generatedStructure.levels, course.progression, 2) === true,
+      'Level 2 unlocked after L2 is explicitly taught');
 
-    unlockStatus = isLevelUnlockedForStudents(course.generatedStructure.levels, course.progression, 2);
-    assert(unlockStatus === false, 'Level 2 locked when Level 1 becomes untaught');
+    // Progression undo — unmark L1; L2 remains independently taught
+    course.progression[0].levelTaught = false;
+    await course.save();
+    assert(isLevelUnlockedForStudents(course.generatedStructure.levels, course.progression, 1) === false,
+      'Level 1 locked after unmark');
+    assert(isLevelUnlockedForStudents(course.generatedStructure.levels, course.progression, 2) === true,
+      'Level 2 still unlocked (its own levelTaught=true unaffected by L1 unmark)');
 
-    // Ensure student data remains
+    // Ensure student data remains after progression changes
     const qaCount = await QuizAttempt.countDocuments({ student, course: course._id });
     const cmCount = await ConceptMastery.countDocuments({ student, course: course._id });
     assert(qaCount === 1, 'Quiz attempt preserved after progression undo');

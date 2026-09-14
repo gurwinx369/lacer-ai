@@ -51,7 +51,9 @@ export default async function CourseSetupPage() {
           </p>
         </div>
 
-        <CourseSetupForm existingCourse={existingCourse} />
+        <CourseSetupForm
+          existingCourse={existingCourse ? JSON.parse(JSON.stringify(existingCourse)) : null}
+        />
       </main>
     </div>
   );

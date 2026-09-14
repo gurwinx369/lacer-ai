@@ -1,0 +1,1142 @@
+
+
+========================================
+FILE: package.json
+========================================
+
+{
+  "name": "lacer-ai",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test:mastery": "node features/concept-mastery/engine.test.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "bcryptjs": "^3.0.3",
+    "jose": "^6.2.12",
+    "mongodb": "^7.6.0",
+    "mongoose": "^9.10.0",
+    "next": "16.3.5",
+    "pdf-parse": "^2.4.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "babel-plugin-react-compiler": "1.0.0",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.5",
+    "tailwindcss": "^4"
+  }
+}
+
+
+========================================
+FILE: models\Course.js
+========================================
+
+import mongoose from 'mongoose';
+
+// YouTube URL validation regex — stored reference only, never fetched.
+const YOUTUBE_URL_PATTERN =
+  /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)[\w\-]{11}(&.*)?$/;
+
+export function isValidYoutubeUrl(url) {
+  return typeof url === 'string' && YOUTUBE_URL_PATTERN.test(url.trim());
+}
+
+const CourseSchema = new mongoose.Schema(
+  {
+    // Stable slug identifier — 'dsa' for the initial course.
+    slug: {
+      type: String,
+      required: [true, 'Course slug is required'],
+      trim: true,
+      lowercase: true,
+    },
+    title: {
+      type: String,
+      required: [true, 'Course title is required'],
+      trim: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    // Teacher-provided reference material for Gemini processing.
+    // Extracted text from the uploaded PDF — the primary Gemini input.
+    syllabus: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    // Metadata about the uploaded PDF. Binary data is NOT stored in MongoDB.
+    syllabusFileMeta: {
+      originalName: { type: String, default: null },
+      sizeBytes:    { type: Number, default: null },
+      uploadedAt:   { type: Date,   default: null },
+    },
+    // Reference video URL — stored only, not fetched.
+    // Transcript extraction is a future phase.
+    youtubeUrl: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    // Processing lifecycle: draft → processing → ready | failed
+    status: {
+      type: String,
+      enum: {
+        values: ['draft', 'processing', 'ready', 'failed'],
+        message: 'Status must be draft, processing, ready, or failed',
+      },
+      default: 'draft',
+    },
+    // Validated JSON structure from Gemini. Only present when status=ready.
+    // Shape: { levels: [ { title, description, order, concepts: [...] } ] }
+    generatedStructure: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    // AI-generated daily teaching plan grounded in the syllabus.
+    // Shape: [ { day, topics: [string], objective: string, estimatedMinutes: number } ]
+    teachingPlan: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    // Last processing error message, if status=failed.
+    processingError: {
+      type: String,
+      default: null,
+    },
+    // Teacher's explicit confirmation that structure is approved for student progression.
+    confirmedAt: {
+      type: Date,
+      default: null,
+    },
+    // Teacher concept-completion state.
+    // Each entry tracks which concepts (by order) have been marked taught in a level,
+    // and whether the teacher has explicitly marked the entire level as taught.
+    // Source of truth: Course.generatedStructure (canonical curriculum).
+    // Student unlock status is DERIVED dynamically — never stored separately.
+    //
+    // Shape: [{
+    //   levelOrder: Number,
+    //   levelTaught: Boolean,         ← explicit teacher declaration (NEW)
+    //   completedConceptOrders: [Number],
+    //   updatedAt: Date
+    // }]
+    // Identity: (courseId, levelOrder) is unique within the array.
+    //
+    // IMPORTANT: levelTaught is independent of completedConceptOrders.
+    //   - completedConceptOrders drives concept-level analytics only.
+    //   - levelTaught drives student access (unlock state).
+    //   Old documents without levelTaught default to false — concept
+    //   completions do NOT retroactively set levelTaught.
+    progression: {
+      type: [
+        {
+          levelOrder: {
+            type: Number,
+            required: true,
+            min: 1,
+          },
+          // Teacher's explicit declaration that this level has been taught in class.
+          // Controls student unlock. Independent of completedConceptOrders.
+          // Defaults to false — old documents retain false automatically.
+          levelTaught: {
+            type: Boolean,
+            default: false,
+          },
+          completedConceptOrders: {
+            type: [Number],
+            default: [],
+          },
+          updatedAt: {
+            type: Date,
+            default: Date.now,
+          },
+          _id: false,
+        },
+      ],
+      default: [],
+    },
+    // Reference video segments mapped to concepts
+    videoChunks: {
+      type: [
+        {
+          levelOrder: { type: Number, required: true, min: 1 },
+          conceptOrder: { type: Number, required: true, min: 1 },
+          startSeconds: { type: Number, required: true, min: 0 },
+          endSeconds: { type: Number, required: true, min: 0 },
+          _id: false,
+        },
+      ],
+      default: [],
+    },
+    // Always set from session — never from client request body.
+    createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'createdBy is required'],
+    },
+  },
+  {
+    timestamps: true,
+  }
+);
+
+// One DSA course per teacher. Prevents duplicates from repeated submissions.
+CourseSchema.index({ slug: 1, createdBy: 1 }, { unique: true });
+
+const Course = mongoose.models.Course || mongoose.model('Course', CourseSchema);
+
+export default Course;
+
+
+========================================
+FILE: lib\gemini.js
+========================================
+
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
+
+// Fail fast at call time, not at module load, to avoid Next.js build errors.
+function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY environment variable is not set');
+  }
+  return new GoogleGenerativeAI(apiKey);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Response schema — native structured JSON via Gemini 2.5 Flash + responseSchema
+// Produces BOTH the curriculum levels/concepts AND the daily teaching plan.
+// ─────────────────────────────────────────────────────────────────────────────
+const COURSE_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    levels: {
+      type: SchemaType.ARRAY,
+      description: 'Ordered list of learning levels in the course',
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          title:       { type: SchemaType.STRING,  description: 'Level title' },
+          description: { type: SchemaType.STRING,  description: 'Brief level description' },
+          order:       { type: SchemaType.INTEGER, description: 'Level order (1-based)' },
+          concepts: {
+            type: SchemaType.ARRAY,
+            description: 'Concepts taught within this level',
+            items: {
+              type: SchemaType.OBJECT,
+              properties: {
+                title:       { type: SchemaType.STRING,  description: 'Concept title' },
+                description: { type: SchemaType.STRING,  description: 'Brief concept description' },
+                order:       { type: SchemaType.INTEGER, description: 'Concept order within the level (1-based)' },
+                learningObjectives: {
+                  type: SchemaType.ARRAY,
+                  description: 'What a student should be able to do after this concept',
+                  items: { type: SchemaType.STRING },
+                },
+              },
+              required: ['title', 'description', 'order', 'learningObjectives'],
+            },
+          },
+        },
+        required: ['title', 'description', 'order', 'concepts'],
+      },
+    },
+    teachingPlan: {
+      type: SchemaType.ARRAY,
+      description: 'Day-by-day teaching plan grounded in the generated curriculum',
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          day:              { type: SchemaType.INTEGER, description: 'Teaching day number (1-based)' },
+          topics:           { type: SchemaType.ARRAY,   description: 'Concept titles to cover this day', items: { type: SchemaType.STRING } },
+          objective:        { type: SchemaType.STRING,  description: 'Concise teaching objective or focus for this day' },
+          estimatedMinutes: { type: SchemaType.INTEGER, description: 'Approximate time in minutes for this day\'s content' },
+        },
+        required: ['day', 'topics', 'objective', 'estimatedMinutes'],
+      },
+    },
+  },
+  required: ['levels', 'teachingPlan'],
+};
+
+const SYSTEM_PROMPT = `You are an expert curriculum designer for computer science education.
+Your task is to analyze a teacher-provided course syllabus (extracted from a PDF) and generate:
+1. A structured, ordered learning hierarchy (levels and concepts).
+2. A day-by-day teaching plan grounded in that hierarchy.
+
+Rules for curriculum:
+- Use the supplied syllabus as the PRIMARY structural source. Do not invent topics not in the syllabus.
+- Organize content into coherent learning LEVELS (e.g., Arrays, Linked Lists, Trees).
+- Break each level into discrete, teachable CONCEPTS (e.g., Array Declaration, Traversal, Two Pointers).
+- Concepts within a level should be non-overlapping.
+- Maintain strict prerequisite order: foundational content first.
+- Write concise, informative descriptions for each level and concept.
+- Generate 2-4 clear learning objectives per concept (what a student will be able to DO).
+- Do NOT generate quiz questions, answers, or explanations.
+- Do NOT include topics outside the provided syllabus scope.
+
+Rules for teaching plan:
+- Each day should reference concept titles that actually appear in the generated curriculum.
+- Distribute concepts logically — do not cram too many into a single day.
+- Write a concise objective for each day that explains the teaching focus.
+- Estimate time in minutes based on concept complexity (typically 45–120 minutes per day).
+- The plan must cover ALL concepts from the curriculum.
+- Do NOT invent days for topics not in the curriculum.
+
+The reference YouTube video URL is provided as context for scope only; you cannot access its content.`;
+
+/**
+ * Calls Gemini 2.5 Flash to generate a structured DSA course hierarchy
+ * AND a daily teaching plan from the extracted syllabus text.
+ *
+ * Uses native responseSchema for guaranteed JSON output — no manual parsing.
+ * The syllabus is the authoritative source; YouTube URL is reference metadata only.
+ *
+ * @param {string} syllabus    - Extracted text from teacher's uploaded PDF
+ * @param {string} youtubeUrl  - Reference video URL (scope context only, not fetched)
+ * @param {string} courseTitle - e.g. "Data Structures & Algorithms"
+ * @returns {Promise<{ levels: Array, teachingPlan: Array }>}
+ * @throws {Error} On API failure, missing key, or invalid structure
+ */
+export async function generateCourseStructure(syllabus, youtubeUrl, courseTitle) {
+  const client = getGeminiClient();
+
+  const model = client.getGenerativeModel({
+    model: 'gemini-2.5-flash',
+    systemInstruction: SYSTEM_PROMPT,
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: COURSE_SCHEMA,
+    },
+  });
+
+  const userPrompt = `Course title: ${courseTitle}
+
+Reference YouTube video (for scope context only — you cannot access this URL):
+${youtubeUrl || 'Not provided'}
+
+Teacher-provided syllabus (extracted from uploaded PDF):
+---
+${syllabus}
+---
+
+Generate the complete structured learning hierarchy AND a day-by-day teaching plan based on the syllabus above.`;
+
+  let result;
+  try {
+    result = await model.generateContent(userPrompt);
+  } catch (err) {
+    // Sanitize — never expose raw API error which may contain key info.
+    console.error('[gemini] generateContent failed:', err.message);
+    throw new Error('Gemini API call failed. Please try again.');
+  }
+
+  const text = result.response.text();
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    console.error('[gemini] Response was not valid JSON:', text?.slice(0, 200));
+    throw new Error('Gemini returned malformed output. Please try again.');
+  }
+
+  // Validate structure before returning — never trust raw AI output.
+  validateCourseOutput(parsed);
+
+  return parsed;
+}
+
+/**
+ * Validates the full Gemini-generated output (levels + teachingPlan).
+ * Throws a descriptive Error if invalid or malformed.
+ * @param {unknown} data
+ */
+function validateCourseOutput(data) {
+  if (!data || typeof data !== 'object') {
+    throw new Error('Generated output is not a valid object.');
+  }
+
+  // ── Levels validation ──────────────────────────────────────────────────────
+  if (!Array.isArray(data.levels) || data.levels.length === 0) {
+    throw new Error('Generated structure must contain a non-empty levels array.');
+  }
+
+  for (const [li, level] of data.levels.entries()) {
+    if (!level.title || typeof level.title !== 'string' || !level.title.trim()) {
+      throw new Error(`Level ${li + 1} is missing a valid title.`);
+    }
+    if (typeof level.order !== 'number' && typeof level.order !== 'string') {
+      throw new Error(`Level "${level.title}" is missing a valid order.`);
+    }
+    if (!Array.isArray(level.concepts) || level.concepts.length === 0) {
+      throw new Error(`Level "${level.title}" must contain at least one concept.`);
+    }
+    for (const [ci, concept] of level.concepts.entries()) {
+      if (!concept.title || typeof concept.title !== 'string' || !concept.title.trim()) {
+        throw new Error(`Concept ${ci + 1} in level "${level.title}" is missing a valid title.`);
+      }
+      if (!Array.isArray(concept.learningObjectives) || concept.learningObjectives.length === 0) {
+        throw new Error(`Concept "${concept.title}" must contain at least one learning objective.`);
+      }
+    }
+  }
+
+  // ── Teaching plan validation ───────────────────────────────────────────────
+  if (!Array.isArray(data.teachingPlan) || data.teachingPlan.length === 0) {
+    throw new Error('Generated output must contain a non-empty teachingPlan array.');
+  }
+
+  for (const [di, day] of data.teachingPlan.entries()) {
+    if (typeof day.day !== 'number' && typeof day.day !== 'string') {
+      throw new Error(`Teaching plan entry ${di + 1} is missing a valid day number.`);
+    }
+    if (!Array.isArray(day.topics) || day.topics.length === 0) {
+      throw new Error(`Teaching plan day ${day.day} must list at least one topic.`);
+    }
+    if (!day.objective || typeof day.objective !== 'string' || !day.objective.trim()) {
+      throw new Error(`Teaching plan day ${day.day} is missing a valid objective.`);
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Quiz generation
+// ─────────────────────────────────────────────────────────────────────────────
+
+const QUIZ_SCHEMA = {
+  type: SchemaType.OBJECT,
+  properties: {
+    quizzes: {
+      type: SchemaType.ARRAY,
+      description: 'Exactly 5 quizzes for the level',
+      items: {
+        type: SchemaType.OBJECT,
+        properties: {
+          serialNumber: { type: SchemaType.INTEGER, description: 'Quiz serial number from 1 to 5' },
+          title: { type: SchemaType.STRING, description: 'Title of the quiz' },
+          questions: {
+            type: SchemaType.ARRAY,
+            description: 'List of questions for this quiz',
+            items: {
+              type: SchemaType.OBJECT,
+              properties: {
+                serialNumber: { type: SchemaType.INTEGER, description: 'Unique question serial number within this quiz' },
+                question: { type: SchemaType.STRING, description: 'The question text' },
+                options: {
+                  type: SchemaType.ARRAY,
+                  description: 'Exactly 3 options for the answer',
+                  items: { type: SchemaType.STRING },
+                },
+                correctAnswer: { type: SchemaType.INTEGER, description: '0-based index of the correct option (0, 1, or 2)' },
+                conceptOrder: { type: SchemaType.INTEGER, description: 'The order number of the concept this question tests' },
+                difficulty: { type: SchemaType.STRING, description: 'Difficulty level: "easy", "medium", or "hard"' },
+              },
+              required: ['serialNumber', 'question', 'options', 'correctAnswer', 'conceptOrder', 'difficulty'],
+            },
+          },
+        },
+        required: ['serialNumber', 'title', 'questions'],
+      },
+    },
+  },
+  required: ['quizzes'],
+};
+
+const QUIZ_SYSTEM_PROMPT = `You are an expert computer science educator.
+Your task is to generate assessment quizzes for a specific learning level in a Data Structures & Algorithms course.
+
+Rules:
+- Generate EXACTLY 5 quizzes.
+- Each quiz must contain a meaningful set of questions (e.g. 3-5 questions per quiz).
+- Provide EXACTLY 3 options for each question.
+- Indicate the correct answer using a 0-based index (0, 1, or 2).
+- Ground all questions ONLY in the supplied canonical level curriculum concepts. Do NOT invent concepts.
+- Provide the \`conceptOrder\` for each question corresponding to the canonical concept it tests.
+- Set difficulty to "easy", "medium", or "hard".
+- Do not duplicate questions. Avoid trivial wording changes.
+- Ensure questions are clear, unambiguous, and have only one defensible answer.`;
+
+/**
+ * Generates exactly 5 quizzes for a specific level.
+ * @param {string} courseTitle - The course title.
+ * @param {string} levelTitle - The title of the level.
+ * @param {Array<{title: string, description: string, order: number, learningObjectives: string[]}>} concepts - Canonical concepts for the level.
+ * @returns {Promise<{ quizzes: Array }>}
+ */
+export async function generateQuizzesForLevel(courseTitle, levelTitle, concepts) {
+  const client = getGeminiClient();
+
+  const model = client.getGenerativeModel({
+    model: 'gemini-2.5-flash',
+    systemInstruction: QUIZ_SYSTEM_PROMPT,
+    generationConfig: {
+      responseMimeType: 'application/json',
+      responseSchema: QUIZ_SCHEMA,
+    },
+  });
+
+  const conceptsText = concepts.map(c =>
+    `Concept ${c.order}: ${c.title}\nDescription: ${c.description}\nObjectives: ${c.learningObjectives?.join(', ') || ''}`
+  ).join('\n\n');
+
+  const userPrompt = `Course: ${courseTitle}
+Level: ${levelTitle}
+
+Canonical Concepts to test:
+---
+${conceptsText}
+---
+
+Generate exactly 5 quizzes for this level based ONLY on the concepts provided above. Ensure each question references the correct \`conceptOrder\`.`;
+
+  let result;
+  try {
+    result = await model.generateContent(userPrompt);
+  } catch (err) {
+    console.error('[gemini] quiz generateContent failed:', err.message);
+    throw new Error('Gemini API call failed during quiz generation.');
+  }
+
+  const text = result.response.text();
+
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    console.error('[gemini] Quiz response was not valid JSON:', text?.slice(0, 200));
+    throw new Error('Gemini returned malformed quiz output.');
+  }
+
+  validateQuizOutput(parsed, concepts);
+
+  return parsed;
+}
+
+function validateQuizOutput(data, concepts) {
+  if (!data || typeof data !== 'object' || !Array.isArray(data.quizzes)) {
+    throw new Error('Generated output must contain a quizzes array.');
+  }
+  if (data.quizzes.length !== 5) {
+    throw new Error(`Expected exactly 5 quizzes, got ${data.quizzes.length}.`);
+  }
+
+  const validConceptOrders = new Set(concepts.map(c => c.order));
+
+  for (const [qi, quiz] of data.quizzes.entries()) {
+    if (quiz.serialNumber !== qi + 1) {
+      throw new Error(`Quiz ${qi + 1} has invalid serialNumber ${quiz.serialNumber}.`);
+    }
+    if (!quiz.title || typeof quiz.title !== 'string') {
+      throw new Error(`Quiz ${qi + 1} is missing a valid title.`);
+    }
+    if (!Array.isArray(quiz.questions) || quiz.questions.length === 0) {
+      throw new Error(`Quiz ${qi + 1} must have at least one question.`);
+    }
+    if (quiz.questions.length < 3 || quiz.questions.length > 5) {
+      throw new Error(`Quiz ${qi + 1} must contain between 3 and 5 questions.`);
+    }
+
+    const seenQSerials = new Set();
+    const seenQuestionsText = new Set();
+
+    for (const [qidx, q] of quiz.questions.entries()) {
+      if (seenQSerials.has(q.serialNumber)) {
+        throw new Error(`Duplicate question serialNumber ${q.serialNumber} in quiz ${qi + 1}.`);
+      }
+      seenQSerials.add(q.serialNumber);
+
+      const qText = q.question?.trim()?.toLowerCase();
+      if (!qText) {
+        throw new Error(`Question ${qidx + 1} in quiz ${qi + 1} has empty text.`);
+      }
+      if (seenQuestionsText.has(qText)) {
+         throw new Error(`Duplicate question text in quiz ${qi + 1}.`);
+      }
+      seenQuestionsText.add(qText);
+
+      if (!Array.isArray(q.options) || q.options.length !== 3) {
+        throw new Error(`Question ${qidx + 1} in quiz ${qi + 1} must have exactly 3 options.`);
+      }
+      if (q.options.some(o => typeof o !== 'string' || !o.trim())) {
+         throw new Error(`Question ${qidx + 1} in quiz ${qi + 1} has empty options.`);
+      }
+
+      if (!Number.isInteger(q.correctAnswer) || q.correctAnswer < 0 || q.correctAnswer > 2) {
+        throw new Error(`Question ${qidx + 1} in quiz ${qi + 1} has invalid correctAnswer ${q.correctAnswer}.`);
+      }
+      if (!validConceptOrders.has(q.conceptOrder)) {
+        throw new Error(`Question ${qidx + 1} in quiz ${qi + 1} references invalid conceptOrder ${q.conceptOrder}.`);
+      }
+      if (!['easy', 'medium', 'hard'].includes(q.difficulty)) {
+         throw new Error(`Question ${qidx + 1} in quiz ${qi + 1} has invalid difficulty ${q.difficulty}.`);
+      }
+    }
+  }
+}
+
+
+========================================
+FILE: lib\youtube.js
+========================================
+
+/**
+ * lib/youtube.js
+ * 
+ * Safely extracts the 11-character videoId from a YouTube URL.
+ */
+
+// This matches the YOUTUBE_URL_PATTERN from models/Course.js
+const YOUTUBE_URL_PATTERN =
+  /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w\-]{11})(&.*)?$/;
+
+/**
+ * Parses a YouTube URL and returns the 11-character video ID.
+ * Returns null if the URL is invalid or unsupported.
+ * @param {string} url 
+ * @returns {string | null}
+ */
+export function extractYoutubeId(url) {
+  if (typeof url !== 'string') return null;
+  const match = url.trim().match(YOUTUBE_URL_PATTERN);
+  return match && match[4] ? match[4] : null;
+}
+
+
+========================================
+FILE: app\teacher\course\review\CourseReview.js
+========================================
+
+'use client';
+
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import ProgressionTab from './ProgressionTab';
+import ConceptVideoSegment from './ConceptVideoSegment';
+import QuizGenerationControl from './QuizGenerationControl';
+
+function LevelCard({ level, index, courseConfirmed, videoChunks, onMutate, totalLevels }) {
+  const [open, setOpen] = useState(index === 0);
+
+  // Editing state for concepts
+  const [editingConcept, setEditingConcept] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editObj, setEditObj] = useState('');
+
+  function startEditConcept(concept) {
+    setEditingConcept(concept.order);
+    setEditTitle(concept.title || '');
+    setEditDesc(concept.description || '');
+    setEditObj((concept.learningObjectives || []).join('\n'));
+  }
+
+  function saveEditConcept(conceptOrder) {
+    const objectives = editObj.split('\n').map(s => s.trim()).filter(Boolean);
+    onMutate({
+      action: 'edit-concept',
+      levelOrder: level.order,
+      conceptOrder,
+      title: editTitle,
+      description: editDesc,
+      learningObjectives: objectives
+    });
+    setEditingConcept(null);
+  }
+
+  const levelOrder = level.order ?? index + 1;
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+      <div className="flex items-center bg-white/5 pr-2">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex-1 flex items-center justify-between px-5 py-4 text-left hover:bg-white/5 transition-colors duration-150"
+          aria-expanded={open}
+        >
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-600/30 text-indigo-300 text-xs font-bold shrink-0">
+              {levelOrder}
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-white">{level.title}</p>
+              {level.description && (
+                <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{level.description}</p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 ml-4">
+            <span className="text-xs text-gray-500">{level.concepts?.length ?? 0} concepts</span>
+            <svg className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </button>
+
+        {!courseConfirmed && (
+          <div className="flex items-center gap-1 px-2">
+            <button onClick={() => onMutate({ action: 'reorder-level', levelOrder, direction: 'up' })} disabled={index === 0} className="p-1 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">
+              ↑
+            </button>
+            <button onClick={() => onMutate({ action: 'reorder-level', levelOrder, direction: 'down' })} disabled={index === totalLevels - 1} className="p-1 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">
+              ↓
+            </button>
+            <button onClick={() => { if(window.confirm('Delete this level and its concepts? This cannot be undone.')) onMutate({ action: 'delete-level', levelOrder }) }} className="p-1 text-red-400 hover:text-red-300">
+              Del
+            </button>
+          </div>
+        )}
+      </div>
+
+      {open && (
+        <div className="border-t border-white/10">
+          <div className="divide-y divide-white/5">
+          {(level.concepts ?? []).map((concept, ci) => (
+            <div key={ci} className="px-5 py-4">
+              <div className="flex items-start gap-3">
+                <span className="text-xs text-gray-600 mt-0.5 font-mono">
+                  {levelOrder}.{concept.order ?? ci + 1}
+                </span>
+                
+                <div className="flex-1 min-w-0">
+                  {editingConcept === concept.order ? (
+                    <div className="space-y-3 bg-black/20 p-3 rounded-lg border border-white/10">
+                      <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white" placeholder="Concept Title" />
+                      <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white h-20" placeholder="Description" />
+                      <textarea value={editObj} onChange={e => setEditObj(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white h-24" placeholder="Learning Objectives (one per line)" />
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={() => setEditingConcept(null)} className="text-xs text-gray-400 hover:text-white px-3 py-1">Cancel</button>
+                        <button onClick={() => saveEditConcept(concept.order)} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded">Save</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium text-white">{concept.title}</p>
+                      {concept.description && <p className="text-xs text-gray-400 mt-1">{concept.description}</p>}
+                      {concept.learningObjectives?.length > 0 && (
+                        <ul className="mt-2 space-y-1">
+                          {concept.learningObjectives.map((obj, oi) => (
+                            <li key={oi} className="flex items-start gap-2 text-xs text-gray-500">
+                              <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
+                              {obj}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  )}
+                  
+                  {!editingConcept && (
+                    <ConceptVideoSegment
+                      courseConfirmed={courseConfirmed}
+                      levelOrder={levelOrder}
+                      conceptOrder={concept.order ?? ci + 1}
+                      initialChunk={videoChunks?.find(vc => vc.levelOrder === levelOrder && vc.conceptOrder === (concept.order ?? ci + 1))}
+                    />
+                  )}
+                </div>
+
+                {!courseConfirmed && (
+                  <div className="flex flex-col gap-1 items-center">
+                    <button onClick={() => onMutate({ action: 'reorder-concept', levelOrder, conceptOrder: concept.order, direction: 'up' })} disabled={ci === 0} className="p-1 text-gray-400 hover:text-white disabled:opacity-30">↑</button>
+                    <button onClick={() => onMutate({ action: 'reorder-concept', levelOrder, conceptOrder: concept.order, direction: 'down' })} disabled={ci === (level.concepts?.length ?? 0) - 1} className="p-1 text-gray-400 hover:text-white disabled:opacity-30">↓</button>
+                    <button onClick={() => startEditConcept(concept)} className="p-1 text-indigo-400 hover:text-indigo-300 text-xs mt-1">Edit</button>
+                    <button onClick={() => { if(window.confirm('Remove this concept from the draft roadmap?')) onMutate({ action: 'delete-concept', levelOrder, conceptOrder: concept.order }) }} className="p-1 text-red-400 hover:text-red-300 text-xs">Del</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TeachingPlanDay({ day }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-bold text-white">Day {day.day}</h4>
+        <span className="text-xs font-medium text-gray-500">{day.estimatedMinutes} mins</span>
+      </div>
+      <p className="text-sm text-indigo-300 font-medium mb-3">{day.objective}</p>
+      <div className="space-y-1">
+        {(day.topics ?? []).map((topic, idx) => (
+          <div key={idx} className="flex items-center gap-2">
+            <svg className="h-3 w-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            <span className="text-xs text-gray-300">{topic}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function CourseReview({ course }) {
+  const router = useRouter();
+  const [confirming, setConfirming] = useState(false);
+  const [confirmed, setConfirmed] = useState(!!course.confirmedAt);
+  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState(course.confirmedAt ? 'progression' : 'curriculum');
+  
+  const [mutating, setMutating] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
+
+  const levels = course.generatedStructure?.levels ?? [];
+  const teachingPlan = course.teachingPlan ?? course.generatedStructure?.teachingPlan ?? [];
+
+  async function handleMutate(payload) {
+    if (mutating) return;
+    setMutating(true);
+    setError('');
+    try {
+      const res = await fetch('/api/teacher/course/structure', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to update structure.');
+      } else {
+        router.refresh();
+      }
+    } catch {
+      setError('Network error while updating structure.');
+    } finally {
+      setMutating(false);
+    }
+  }
+
+  async function handleRegenerate() {
+    if (!window.confirm('This will replace your current draft with a newly generated roadmap from the syllabus. Your current draft edits will be lost.')) return;
+    
+    setRegenerating(true);
+    setError('');
+    try {
+      const res = await fetch('/api/teacher/course/process', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Regeneration failed. Please try again.');
+      } else {
+        router.refresh();
+      }
+    } catch {
+      setError('Network error during regeneration.');
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  async function handleConfirm() {
+    setError('');
+    setConfirming(true);
+    try {
+      const res = await fetch('/api/teacher/course/confirm', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Confirmation failed. Please try again.');
+        return;
+      }
+      setConfirmed(true);
+      setActiveTab('progression');
+      router.refresh();
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setConfirming(false);
+    }
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Summary section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-5">
+          <p className="text-xs text-indigo-400 font-semibold uppercase tracking-wide mb-1">Generated from Syllabus</p>
+          <p className="text-sm text-gray-300">
+            {course.syllabusFileMeta?.originalName || 'Syllabus text'}
+          </p>
+          <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
+            <span>{levels.length} Levels</span>
+            <span>{levels.reduce((sum, l) => sum + (l.concepts?.length ?? 0), 0)} Concepts</span>
+            <span>{teachingPlan.length} Days</span>
+          </div>
+        </div>
+
+        {course.youtubeUrl && (
+          <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-1">Reference Video</p>
+            <a
+              href={course.youtubeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors truncate block"
+            >
+              {course.youtubeUrl}
+            </a>
+            <p className="mt-3 text-xs text-gray-500">Stored for future video-chunk extraction.</p>
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div role="alert" className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+          {error}
+        </div>
+      )}
+
+      {mutating && (
+        <div className="text-sm text-indigo-400 animate-pulse">Updating roadmap structure...</div>
+      )}
+
+      {/* Assessment Quizzes — always visible after confirmation, independent of active tab */}
+      {confirmed && levels.length > 0 && (
+        <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+          <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-indigo-500/5">
+            <div>
+              <h3 className="text-sm font-semibold text-white">Assessment Quizzes</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Generate exactly 5 Gemini-powered quizzes per level.</p>
+            </div>
+            <span className="text-xs text-gray-500">{levels.length} levels</span>
+          </div>
+          <div className="divide-y divide-white/5 px-4 py-2 space-y-2">
+            {levels.map((level) => (
+              <div key={level.order} className="pt-2 first:pt-0">
+                <QuizGenerationControl
+                  levelOrder={level.order}
+                  levelTitle={level.title}
+                  courseConfirmed={confirmed}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div>
+        <div className="border-b border-white/10 mb-5 flex gap-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab('curriculum')}
+            className={`pb-3 text-sm font-medium transition-colors ${
+              activeTab === 'curriculum'
+                ? 'border-b-2 border-indigo-500 text-indigo-400'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            Curriculum Structure
+          </button>
+          {teachingPlan.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('plan')}
+              className={`pb-3 text-sm font-medium transition-colors ${
+                activeTab === 'plan'
+                  ? 'border-b-2 border-indigo-500 text-indigo-400'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Daily Teaching Plan
+            </button>
+          )}
+          {confirmed && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('progression')}
+              className={`pb-3 text-sm font-medium transition-colors ${
+                activeTab === 'progression'
+                  ? 'border-b-2 border-indigo-500 text-indigo-400'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Classroom Progression
+            </button>
+          )}
+        </div>
+
+        {activeTab === 'curriculum' && (
+          <div className="space-y-3">
+            {levels.map((level, i) => (
+              <LevelCard 
+                key={level.order || i} 
+                level={level} 
+                index={i} 
+                courseConfirmed={confirmed} 
+                videoChunks={course.videoChunks} 
+                onMutate={handleMutate}
+                totalLevels={levels.length}
+              />
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'plan' && teachingPlan.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {teachingPlan.map((day, i) => (
+              <TeachingPlanDay key={i} day={day} />
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'progression' && confirmed && (
+          <ProgressionTab levels={levels} />
+        )}
+      </div>
+
+
+
+      <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-white/10">
+        {confirmed ? (
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-400">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+              Structure Confirmed
+            </span>
+            <span className="text-xs text-gray-500">
+              Course structure is ready for student progression.
+            </span>
+          </div>
+        ) : (
+          <>
+            <button
+              id="confirm-structure-btn"
+              type="button"
+              onClick={handleConfirm}
+              disabled={confirming || regenerating || mutating}
+              aria-busy={confirming}
+              className="
+                flex items-center justify-center gap-2
+                rounded-lg bg-emerald-600 px-6 py-2.5
+                text-sm font-medium text-white
+                hover:bg-emerald-500 active:scale-[0.98]
+                disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100
+                transition-all duration-150
+              "
+            >
+              {confirming ? 'Confirming…' : '✓ Confirm Structure & Plan'}
+            </button>
+            <button
+              type="button"
+              onClick={handleRegenerate}
+              disabled={regenerating || confirming || mutating}
+              className="
+                flex items-center justify-center gap-2
+                rounded-lg bg-white/10 border border-white/20 px-6 py-2.5
+                text-sm font-medium text-white
+                hover:bg-white/20 active:scale-[0.98]
+                disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100
+                transition-all duration-150
+              "
+            >
+              {regenerating ? 'Regenerating…' : '⟳ Regenerate Roadmap'}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+========================================
+FILE: app\api\teacher\course\process\route.js
+========================================
+
+import { NextResponse } from 'next/server';
+import { getSession } from '@/lib/auth';
+import { connectDB } from '@/lib/db';
+import Course from '@/models/Course';
+import { generateCourseStructure } from '@/lib/gemini';
+
+const DSA_SLUG = 'dsa';
+
+export async function POST() {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (session.role !== 'teacher') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+
+  try {
+    await connectDB();
+
+    const course = await Course.findOne({ slug: DSA_SLUG, createdBy: session.userId });
+
+    if (!course) {
+      return NextResponse.json(
+        { error: 'Course not found. Please complete course setup first.' },
+        { status: 404 }
+      );
+    }
+
+    if (!course.syllabus || course.syllabus.trim().length < 50) {
+      return NextResponse.json(
+        { error: 'Syllabus is missing or too short. Please update course setup.' },
+        { status: 400 }
+      );
+    }
+
+    // Prevent double-processing — if already running, return current state.
+    if (course.status === 'processing') {
+      return NextResponse.json({ course });
+    }
+
+    if (course.confirmedAt) {
+      return NextResponse.json(
+        { error: 'Cannot regenerate a confirmed roadmap.' },
+        { status: 409 }
+      );
+    }
+
+    let structure;
+    try {
+      structure = await generateCourseStructure(
+        course.syllabus,
+        course.youtubeUrl,
+        course.title
+      );
+    } catch (geminiErr) {
+      // Gemini failed — ZERO database mutation
+      return NextResponse.json(
+        { error: geminiErr.message || 'Processing failed. Please try again.' },
+        { status: 422 }
+      );
+    }
+
+    // Structure validated inside generateCourseStructure — safe to persist.
+    // Atomic update
+    course.status = 'ready';
+    course.generatedStructure = { levels: structure.levels };
+    course.teachingPlan = structure.teachingPlan;
+    course.videoChunks = []; // clear stale video chunks on successful regeneration
+    course.processingError = null;
+    await course.save();
+
+    return NextResponse.json({ course });
+  } catch (err) {
+    console.error('[POST /api/teacher/course/process]', err.message);
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });
+  }
+}
+
+
+FILE NOT FOUND: app\api\teacher\course\review\route.js
+

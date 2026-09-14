@@ -2,31 +2,47 @@
  * GET  /api/teacher/course/progression
  * PATCH /api/teacher/course/progression
  *
- * Teacher reads and updates concept completion state.
+ * Teacher reads and updates progression state.
  * All state lives in Course.progression — no Level collection.
  *
  * GET response:
- *   { progressionMap: Record<levelOrder, { teacherStatus, studentUnlocked, completedConceptOrders }> }
+ *   { progressionMap: Record<levelOrder, { teacherStatus, levelTaught, studentUnlocked, completedConceptOrders }> }
  *
- * PATCH body:
+ * PATCH body — two mutually exclusive modes:
+ *
+ *   Mode A: Concept toggle
  *   { levelOrder: number, conceptOrder: number, completed: boolean }
  *
- * PATCH response:
- *   { progressionMap: Record<levelOrder, { teacherStatus, studentUnlocked, completedConceptOrders }> }
+ *   Mode B: Level taught toggle
+ *   { levelOrder: number, markTaught: boolean }
+ *     markTaught=true  → marks the level explicitly taught
+ *     markTaught=false → unmarks it (derived student access becomes locked)
+ *
+ *   IMPORTANT for markTaught=true:
+ *     Backend enforces sequential teaching order.
+ *     Level N (N > 1) cannot be marked taught unless Level N-1 is already taught.
+ *     Enforced server-side; UI-only enforcement is insufficient.
+ *
+ *   IMPORTANT for markTaught=false (unmark):
+ *     Only this level's levelTaught flag is cleared.
+ *     Dependent levels' levelTaught flags are NOT mutated.
+ *     Student access for dependent levels is DERIVED from prerequisites —
+ *     they become locked because their prerequisite is no longer taught.
+ *     QuizAttempt, AssignmentAttempt, ConceptMastery are NOT deleted.
  *
  * Authorization:
  *   - Must be authenticated teacher
  *   - Teacher must own the course (createdBy === session.userId)
  *   - Course must be in 'ready' status
  *   - levelOrder must exist in generatedStructure
- *   - conceptOrder must exist within that level
+ *   - conceptOrder (Mode A) must exist within that level
  */
 
 import { NextResponse } from 'next/server';
 import { getSession } from '@/lib/auth';
 import { connectDB } from '@/lib/db';
 import Course from '@/models/Course';
-import { buildProgressionMap } from '@/lib/progression';
+import { buildProgressionMap, canMarkLevelTaught } from '@/lib/progression';
 
 const DSA_SLUG = 'dsa';
 
@@ -88,18 +104,39 @@ export async function PATCH(request) {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
   }
 
-  const { levelOrder, conceptOrder, completed } = body ?? {};
+  const { levelOrder, conceptOrder, completed, markTaught } = body ?? {};
 
-  // ── Input type validation ────────────────────────────────────────────────
-  if (
-    typeof levelOrder !== 'number' || !Number.isInteger(levelOrder) || levelOrder < 1 ||
-    typeof conceptOrder !== 'number' || !Number.isInteger(conceptOrder) || conceptOrder < 1 ||
-    typeof completed !== 'boolean'
-  ) {
+  // ── Detect mode ──────────────────────────────────────────────────────────
+  const isModeB = markTaught !== undefined;
+  const isModeA = !isModeB;
+
+  // ── Shared: levelOrder validation ────────────────────────────────────────
+  if (typeof levelOrder !== 'number' || !Number.isInteger(levelOrder) || levelOrder < 1) {
     return NextResponse.json(
-      { error: 'levelOrder and conceptOrder must be positive integers; completed must be boolean.' },
+      { error: 'levelOrder must be a positive integer.' },
       { status: 400 }
     );
+  }
+
+  if (isModeA) {
+    // Mode A — concept toggle validation
+    if (
+      typeof conceptOrder !== 'number' || !Number.isInteger(conceptOrder) || conceptOrder < 1 ||
+      typeof completed !== 'boolean'
+    ) {
+      return NextResponse.json(
+        { error: 'Concept toggle requires: levelOrder (int), conceptOrder (int), completed (boolean).' },
+        { status: 400 }
+      );
+    }
+  } else {
+    // Mode B — markTaught validation
+    if (typeof markTaught !== 'boolean') {
+      return NextResponse.json(
+        { error: 'markTaught must be a boolean.' },
+        { status: 400 }
+      );
+    }
   }
 
   try {
@@ -116,9 +153,8 @@ export async function PATCH(request) {
       );
     }
 
-    // ── Validate against canonical curriculum — never trust client titles ────
+    // ── Validate level exists in canonical curriculum ─────────────────────
     const levels = course.generatedStructure?.levels ?? [];
-
     const level = levels.find((l) => l.order === levelOrder);
     if (!level) {
       return NextResponse.json(
@@ -127,38 +163,33 @@ export async function PATCH(request) {
       );
     }
 
-    const conceptExists = (level.concepts ?? []).some((c) => c.order === conceptOrder);
-    if (!conceptExists) {
-      return NextResponse.json(
-        { error: `Concept with order ${conceptOrder} does not exist in level ${levelOrder}.` },
-        { status: 400 }
-      );
-    }
+    if (isModeA) {
+      // ── Mode A: Concept toggle ─────────────────────────────────────────
+      const conceptExists = (level.concepts ?? []).some((c) => c.order === conceptOrder);
+      if (!conceptExists) {
+        return NextResponse.json(
+          { error: `Concept with order ${conceptOrder} does not exist in level ${levelOrder}.` },
+          { status: 400 }
+        );
+      }
 
-    // ── Idempotent upsert on the embedded progression array ──────────────────
-    // Find or create the progression entry for this level.
-    const progression = course.progression ?? [];
-    const existingIndex = progression.findIndex((p) => p.levelOrder === levelOrder);
+      // Idempotent upsert on the embedded progression array.
+      const progression = course.progression ?? [];
+      const existingIndex = progression.findIndex((p) => p.levelOrder === levelOrder);
 
-    if (existingIndex === -1) {
-      // First interaction with this level — create the entry.
-      const newEntry = {
-        levelOrder,
-        completedConceptOrders: completed ? [conceptOrder] : [],
-        updatedAt: new Date(),
-      };
-      // Use $push to atomically add the new level entry
-      await Course.updateOne(
-        { _id: course._id },
-        {
-          $push: {
-            progression: newEntry,
-          },
-        }
-      );
-    } else {
-      // Entry exists — add or remove the conceptOrder idempotently.
-      if (completed) {
+      if (existingIndex === -1) {
+        // First interaction with this level — create the entry.
+        const newEntry = {
+          levelOrder,
+          levelTaught: false,
+          completedConceptOrders: completed ? [conceptOrder] : [],
+          updatedAt: new Date(),
+        };
+        await Course.updateOne(
+          { _id: course._id },
+          { $push: { progression: newEntry } }
+        );
+      } else if (completed) {
         // $addToSet prevents duplicates natively.
         await Course.updateOne(
           { _id: course._id, 'progression.levelOrder': levelOrder },
@@ -168,7 +199,7 @@ export async function PATCH(request) {
           }
         );
       } else {
-        // $pull removes the value; safe to call even if it isn't present.
+        // $pull removes the value; safe even if not present.
         await Course.updateOne(
           { _id: course._id, 'progression.levelOrder': levelOrder },
           {
@@ -177,9 +208,54 @@ export async function PATCH(request) {
           }
         );
       }
+    } else {
+      // ── Mode B: Level taught toggle ────────────────────────────────────
+
+      if (markTaught) {
+        // ── Sequential enforcement: Level N requires Level N-1 to be taught ──
+        const currentProgression = course.progression ?? [];
+        if (!canMarkLevelTaught(levels, currentProgression, levelOrder)) {
+          const prereqOrder = levelOrder - 1;
+          return NextResponse.json(
+            {
+              error: `Level ${levelOrder} cannot be marked taught until Level ${prereqOrder} is taught first.`,
+            },
+            { status: 409 }
+          );
+        }
+      }
+
+      // Concurrency-safe upsert using positional $ operator.
+      // Check if an entry for this level already exists.
+      const existingEntry = (course.progression ?? []).find((p) => p.levelOrder === levelOrder);
+
+      if (!existingEntry) {
+        // Create new progression entry with levelTaught set.
+        const newEntry = {
+          levelOrder,
+          levelTaught: markTaught,
+          completedConceptOrders: [],
+          updatedAt: new Date(),
+        };
+        await Course.updateOne(
+          { _id: course._id },
+          { $push: { progression: newEntry } }
+        );
+      } else {
+        // Update only levelTaught and updatedAt — never touch completedConceptOrders.
+        await Course.updateOne(
+          { _id: course._id, 'progression.levelOrder': levelOrder },
+          {
+            $set: {
+              'progression.$.levelTaught': markTaught,
+              'progression.$.updatedAt': new Date(),
+            },
+          }
+        );
+      }
     }
 
-    // Re-fetch the updated document to return the authoritative state.
+    // Re-fetch updated document to return authoritative state.
     const updated = await Course.findById(course._id).lean();
 
     return NextResponse.json({

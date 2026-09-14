@@ -18,7 +18,8 @@
     "next": "16.3.5",
     "pdf-parse": "^2.4.5",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "youtube-caption-extractor": "^1.10.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

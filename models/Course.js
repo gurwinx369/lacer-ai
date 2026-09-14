@@ -79,12 +79,24 @@ const CourseSchema = new mongoose.Schema(
       default: null,
     },
     // Teacher concept-completion state.
-    // Each entry tracks which concepts (by order) have been marked taught in a level.
+    // Each entry tracks which concepts (by order) have been marked taught in a level,
+    // and whether the teacher has explicitly marked the entire level as taught.
     // Source of truth: Course.generatedStructure (canonical curriculum).
     // Student unlock status is DERIVED dynamically — never stored separately.
     //
-    // Shape: [{ levelOrder: Number, completedConceptOrders: [Number], updatedAt: Date }]
+    // Shape: [{
+    //   levelOrder: Number,
+    //   levelTaught: Boolean,         ← explicit teacher declaration (NEW)
+    //   completedConceptOrders: [Number],
+    //   updatedAt: Date
+    // }]
     // Identity: (courseId, levelOrder) is unique within the array.
+    //
+    // IMPORTANT: levelTaught is independent of completedConceptOrders.
+    //   - completedConceptOrders drives concept-level analytics only.
+    //   - levelTaught drives student access (unlock state).
+    //   Old documents without levelTaught default to false — concept
+    //   completions do NOT retroactively set levelTaught.
     progression: {
       type: [
         {
@@ -92,6 +104,13 @@ const CourseSchema = new mongoose.Schema(
             type: Number,
             required: true,
             min: 1,
+          },
+          // Teacher's explicit declaration that this level has been taught in class.
+          // Controls student unlock. Independent of completedConceptOrders.
+          // Defaults to false — old documents retain false automatically.
+          levelTaught: {
+            type: Boolean,
+            default: false,
           },
           completedConceptOrders: {
             type: [Number],

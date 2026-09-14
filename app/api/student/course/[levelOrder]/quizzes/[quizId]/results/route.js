@@ -74,7 +74,11 @@ export async function GET(request, { params }) {
 
       // Do not fabricate INSUFFICIENT_DATA if missing. Represent missing explicitly as null.
       const masteryEntry = masteryData?.[conceptName];
-      const masteryVerdict = masteryEntry ? masteryEntry.verdict : null;
+
+      const masteryVerdict =
+        masteryEntry?.verdict === 'INSUFFICIENT_DATA'
+          ? null
+          : masteryEntry?.verdict ?? null;
 
       const canonicalConcept = level.concepts.find(c => c.title === conceptName);
 
@@ -131,7 +135,7 @@ export async function GET(request, { params }) {
     return NextResponse.json(
       {
         attempt: {
-          attemptId: attempt._id,
+          attemptId: attempt._id.toString(),
           score: attempt.score,
           totalQuestions: attempt.totalQuestions,
           percentage: Math.round((attempt.score / attempt.totalQuestions) * 100),

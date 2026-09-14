@@ -156,18 +156,16 @@ function QuizResultsContent() {
                 </div>
 
                 <div>
-                  {c.masteryVerdict ? (
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${
-                      c.masteryVerdict === 'MASTERY' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
-                      c.masteryVerdict === 'KNOWLEDGE_GAP' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' :
-                      c.masteryVerdict === 'INSUFFICIENT_DATA' ? 'bg-gray-500/10 border-gray-500/20 text-gray-400' :
-                      'bg-amber-500/10 border-amber-500/20 text-amber-400'
-                    }`}>
+                  {c.masteryVerdict && c.masteryVerdict !== 'INSUFFICIENT_DATA' && (
+                    <span
+                      className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${c.masteryVerdict === 'MASTERY'
+                          ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                          : c.masteryVerdict === 'KNOWLEDGE_GAP'
+                            ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                            : 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                        }`}
+                    >
                       {c.masteryVerdict.replace(/_/g, ' ')}
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border bg-gray-500/10 border-gray-500/20 text-gray-400">
-                      NOT ENOUGH DATA
                     </span>
                   )}
                 </div>
