@@ -42,33 +42,35 @@ export async function gradeAndPersist(studentId, courseId, quizAttemptId, answer
   }
 
   // ── Layer 0 + 1: resolve E_i and grade each answer ───────────────────────
-  const gradedByConceptTier = {}; // "concept::tier" → graded attempt
+  const allGradedAttempts = [];
+  const newEiUpdates = {}; // "concept::tier" -> {newEi, newN}
 
   for (const ans of answers) {
     const tier = ans.difficulty;
     const eiKey = `${ans.concept}::${tier}`;
 
-    const eiCurrent = _mapGet(doc.expectedTimeAnchors, eiKey);
-    const eiN       = _mapGet(doc.expectedTimeSampleCounts, eiKey) ?? 0;
+    // Read current state OR our running update if multiple questions in same tier
+    const eiCurrent = newEiUpdates[eiKey]?.newEi ?? _mapGet(doc.expectedTimeAnchors, eiKey);
+    const eiN       = newEiUpdates[eiKey]?.newN ?? (_mapGet(doc.expectedTimeSampleCounts, eiKey) ?? 0);
 
     // Resolve E_i for grading; compute updated E_i if we have a real time.
     const { ei: eiMs } = computeEiIncremental(eiCurrent, eiN, tier);
     const { ei: newEi, n: newN } = computeEiIncremental(eiCurrent, eiN, tier, ans.responseTimeMs || null);
 
-    gradedByConceptTier[eiKey] = {
+    newEiUpdates[eiKey] = { newEi, newN };
+
+    allGradedAttempts.push({
       concept: ans.concept,
       tier,
-      newEi,
-      newN,
       graded: gradeAttempt(ans.responseTimeMs ?? 70001, eiMs, ans.isCorrect),
-    };
+    });
   }
 
   // ── Layer 2: classify each concept (pool prior + new attempts) ────────────
   const conceptVerdicts = {};
   // Group new graded attempts by concept
   const newByConceptMap = {};
-  for (const entry of Object.values(gradedByConceptTier)) {
+  for (const entry of allGradedAttempts) {
     (newByConceptMap[entry.concept] ||= []).push(entry.graded);
   }
 
@@ -95,7 +97,7 @@ export async function gradeAndPersist(studentId, courseId, quizAttemptId, answer
   // ── Atomic write ──────────────────────────────────────────────────────────
   const setOps = {};
 
-  for (const [eiKey, entry] of Object.entries(gradedByConceptTier)) {
+  for (const [eiKey, entry] of Object.entries(newEiUpdates)) {
     setOps[`expectedTimeAnchors.${eiKey}`]      = entry.newEi;
     setOps[`expectedTimeSampleCounts.${eiKey}`] = entry.newN;
   }

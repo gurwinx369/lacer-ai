@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { verifyAndGetStudentLevel } from '@/lib/student-course';
+import QuizzesList from './QuizzesList';
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await params;
@@ -94,19 +95,8 @@ export default async function StudentLevelPage({ params }) {
             </div>
           </div>
 
-          {/* Assessment Placeholder */}
-          <div className="mt-12 rounded-2xl border-2 border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
-            <div className="mx-auto w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
-              <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-white mb-2">Assessment coming next</h3>
-            <p className="text-sm text-gray-400 max-w-md mx-auto">
-              Quizzes and mastery tracking will be available here soon. For now, focus on understanding the concepts taught in class.
-            </p>
-          </div>
-
+          {/* Assessment Quizzes */}
+          <QuizzesList levelOrder={level.levelOrder} />
         </div>
       </main>
     </div>

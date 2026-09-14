@@ -5,25 +5,21 @@
  *
  * Body: {
  *   quizId:  string,
- *   courseId: string,
  *   answers: [{
  *     serialNumber:  number,
- *     concept:       string,
- *     difficulty:    "easy"|"medium"|"hard",
  *     selectedAnswer: number,   // 0-indexed
- *     correctAnswer:  number,   // 0-indexed (from Quiz doc)
  *     responseTimeMs: number,
  *   }]
  * }
  */
 
 import { NextResponse } from 'next/server';
-import mongoose from 'mongoose';
 import { connectDB } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import Quiz from '@/models/Quiz';
 import QuizAttempt from '@/models/QuizAttempt';
 import { gradeAndPersist } from '@/features/concept-mastery/service';
+import { verifyAndGetStudentLevel } from '@/lib/student-course';
 
 export async function POST(request) {
   const session = await getSession();
@@ -38,31 +34,58 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 
-  const { quizId, courseId, answers } = body ?? {};
+  const { quizId, answers } = body ?? {};
 
   if (
-    typeof quizId !== 'string'    || !quizId ||
-    typeof courseId !== 'string'  || !courseId ||
-    !Array.isArray(answers)       || answers.length === 0
+    typeof quizId !== 'string' || !quizId ||
+    !Array.isArray(answers) || answers.length === 0
   ) {
-    return NextResponse.json({ error: 'quizId, courseId, and answers are required' }, { status: 400 });
+    return NextResponse.json({ error: 'quizId and answers are required' }, { status: 400 });
   }
 
   await connectDB();
 
-  // Verify quiz belongs to this course
-  const quiz = await Quiz.findOne({ _id: quizId, course: courseId }).lean();
+  // Verify quiz exists
+  const quiz = await Quiz.findById(quizId).lean();
   if (!quiz) {
     return NextResponse.json({ error: 'Quiz not found' }, { status: 404 });
+  }
+
+  // Verify level is unlocked using canonical logic
+  const { error: unlockError, status: unlockStatus, course: safeCourse } = await verifyAndGetStudentLevel(quiz.levelOrder);
+  if (unlockError) {
+    return NextResponse.json({ error: unlockError }, { status: unlockStatus });
+  }
+
+  // Verify the quiz belongs to the canonical course
+  if (quiz.course.toString() !== safeCourse.id) {
+     return NextResponse.json({ error: 'Quiz does not belong to the current course' }, { status: 400 });
   }
 
   // Build answer docs — resolve correctAnswer + concept from the canonical Quiz doc
   const questionMap = Object.fromEntries(quiz.questions.map(q => [q.serialNumber, q]));
   const answerDocs = [];
+  const seenSerialNumbers = new Set();
+
+  if (answers.length !== quiz.questions.length) {
+    return NextResponse.json({ error: `Expected exactly ${quiz.questions.length} answers, received ${answers.length}` }, { status: 400 });
+  }
 
   for (const a of answers) {
+    if (seenSerialNumbers.has(a.serialNumber)) {
+      return NextResponse.json({ error: `Duplicate serialNumber: ${a.serialNumber}` }, { status: 400 });
+    }
+    seenSerialNumbers.add(a.serialNumber);
+
     const q = questionMap[a.serialNumber];
-    if (!q) return NextResponse.json({ error: `Unknown serialNumber: ${a.serialNumber}` }, { status: 400 });
+    if (!q) {
+      return NextResponse.json({ error: `Unknown serialNumber: ${a.serialNumber}` }, { status: 400 });
+    }
+
+    if (a.selectedAnswer !== null && (!Number.isInteger(a.selectedAnswer) || a.selectedAnswer < 0 || a.selectedAnswer > 2)) {
+      return NextResponse.json({ error: `Invalid selectedAnswer for question ${a.serialNumber}` }, { status: 400 });
+    }
+
     const isCorrect = a.selectedAnswer === q.correctAnswer;
     answerDocs.push({
       serialNumber:   q.serialNumber,
@@ -71,7 +94,7 @@ export async function POST(request) {
       selectedAnswer: a.selectedAnswer ?? null,
       correctAnswer:  q.correctAnswer,
       isCorrect,
-      responseTimeMs: typeof a.responseTimeMs === 'number' ? a.responseTimeMs : 0,
+      responseTimeMs: (typeof a.responseTimeMs === 'number' && Number.isFinite(a.responseTimeMs) && a.responseTimeMs >= 0) ? a.responseTimeMs : 0,
     });
   }
 
@@ -82,7 +105,7 @@ export async function POST(request) {
     student:        session.userId,
     quiz:           quizId,
     levelOrder:     quiz.levelOrder,
-    course:         courseId,
+    course:         safeCourse.id,
     answers:        answerDocs,
     score,
     totalQuestions: answerDocs.length,
@@ -93,7 +116,7 @@ export async function POST(request) {
   try {
     await gradeAndPersist(
       session.userId,
-      courseId,
+      safeCourse.id,
       attempt._id.toString(),
       answerDocs.map(a => ({
         concept:       a.concept,

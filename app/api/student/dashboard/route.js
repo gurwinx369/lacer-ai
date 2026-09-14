@@ -9,7 +9,7 @@
  */
 
 import { NextResponse } from 'next/server';
-import dbConnect from '@/lib/db';
+import { connectDB } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import User from '@/models/User';
 import Course from '@/models/Course';

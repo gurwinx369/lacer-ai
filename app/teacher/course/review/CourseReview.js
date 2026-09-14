@@ -1,11 +1,44 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProgressionTab from './ProgressionTab';
 
-function LevelCard({ level, index }) {
-  const [open, setOpen] = useState(index === 0); // First level open by default.
+function LevelCard({ level, index, courseConfirmed }) {
+  const [open, setOpen] = useState(index === 0);
+  const [quizStatus, setQuizStatus] = useState(courseConfirmed ? 'loading' : 'idle');
+  const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    if (!courseConfirmed) return;
+    fetch(`/api/teacher/course/level/${level.order ?? index + 1}/quiz-status`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.count >= 5) setQuizStatus('ready');
+        else setQuizStatus('idle');
+      })
+      .catch(() => setQuizStatus('idle'));
+  }, [courseConfirmed, level.order, index]);
+
+  async function handleGenerateQuizzes(e) {
+    e.stopPropagation();
+    if (quizStatus === 'generating' || quizStatus === 'ready') return;
+    setQuizStatus('generating');
+    setErrorMsg('');
+    try {
+      const res = await fetch(`/api/teacher/course/level/${level.order ?? index + 1}/generate-quizzes`, { method: 'POST' });
+      const data = await res.json();
+      if (res.status === 409 || res.ok) {
+        setQuizStatus('ready');
+      } else {
+        setQuizStatus('error');
+        setErrorMsg(data.error || 'Generation failed.');
+      }
+    } catch {
+      setQuizStatus('error');
+      setErrorMsg('Network error.');
+    }
+  }
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
@@ -35,7 +68,39 @@ function LevelCard({ level, index }) {
       </button>
 
       {open && (
-        <div className="border-t border-white/10 divide-y divide-white/5">
+        <div className="border-t border-white/10">
+          <div className="bg-black/20 p-4 border-b border-white/5 flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-white">Assessment Material</p>
+              <p className="text-xs text-gray-400 mt-0.5">Generate exactly 5 quizzes using Gemini to test this level&apos;s concepts.</p>
+              {quizStatus === 'error' && <p className="text-xs text-red-400 mt-1">{errorMsg}</p>}
+            </div>
+            <div>
+              {quizStatus === 'ready' && (
+                <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-medium text-emerald-400">
+                  5 Quizzes Ready
+                </span>
+              )}
+              {quizStatus === 'generating' && (
+                <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs font-medium text-indigo-400">
+                  <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  Generating...
+                </span>
+              )}
+              {(quizStatus === 'idle' || quizStatus === 'error') && courseConfirmed && (
+                <button
+                  onClick={handleGenerateQuizzes}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-medium text-white transition-colors"
+                >
+                  {quizStatus === 'error' ? 'Retry Generation' : 'Generate Quizzes'}
+                </button>
+              )}
+              {(quizStatus === 'idle' || quizStatus === 'error') && !courseConfirmed && (
+                <span className="text-xs text-gray-500">Confirm course to generate quizzes</span>
+              )}
+            </div>
+          </div>
+          <div className="divide-y divide-white/5">
           {(level.concepts ?? []).map((concept, ci) => (
             <div key={ci} className="px-5 py-4">
               <div className="flex items-start gap-3">
@@ -59,6 +124,7 @@ function LevelCard({ level, index }) {
               </div>
             </div>
           ))}
+          </div>
         </div>
       )}
     </div>
@@ -204,7 +270,7 @@ export default function CourseReview({ course }) {
         {activeTab === 'curriculum' && (
           <div className="space-y-3">
             {levels.map((level, i) => (
-              <LevelCard key={i} level={level} index={i} />
+              <LevelCard key={i} level={level} index={i} courseConfirmed={confirmed} />
             ))}
           </div>
         )}
