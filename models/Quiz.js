@@ -1,4 +1,4 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const QuestionSchema = new mongoose.Schema(
   {
@@ -15,7 +15,7 @@ const QuestionSchema = new mongoose.Schema(
       type: [String],
       validate: {
         validator: (v) => v.length === 3,
-        message: 'Each question must have exactly 3 options.',
+        message: "Each question must have exactly 3 options.",
       },
       required: true,
     },
@@ -34,11 +34,11 @@ const QuestionSchema = new mongoose.Schema(
     },
     difficulty: {
       type: String,
-      enum: ['easy', 'medium', 'hard'],
-      default: 'medium',
+      enum: ["easy", "medium", "hard"],
+      default: "easy",
     },
   },
-  { _id: false }
+  { _id: false },
 );
 
 const QuizSchema = new mongoose.Schema(
@@ -57,12 +57,12 @@ const QuizSchema = new mongoose.Schema(
     },
     level: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Level',
+      ref: "Level",
       required: true,
     },
     course: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Course',
+      ref: "Course",
       required: true,
     },
     // Generated from video transcript via Gemini
@@ -70,16 +70,16 @@ const QuizSchema = new mongoose.Schema(
       type: [QuestionSchema],
       validate: {
         validator: (v) => v.length > 0,
-        message: 'A quiz must have at least one question.',
+        message: "A quiz must have at least one question.",
       },
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 // One quiz per serial number per level
 QuizSchema.index({ level: 1, serialNumber: 1 }, { unique: true });
 
-const Quiz = mongoose.models.Quiz || mongoose.model('Quiz', QuizSchema);
+const Quiz = mongoose.models.Quiz || mongoose.model("Quiz", QuizSchema);
 
 export default Quiz;
