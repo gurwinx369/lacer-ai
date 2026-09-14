@@ -31,6 +31,13 @@ const UserSchema = new mongoose.Schema(
       },
       required: [true, 'Role is required'],
     },
+    // Student-only: institution registration ID shown in teacher analytics
+    registrationId: { type: String, trim: true, default: null },
+    // Gamification — updated after each quiz submission
+    xp: { type: Number, default: 0, min: 0 },
+    streak: { type: Number, default: 0, min: 0 },
+    // ISO date (YYYY-MM-DD) of last activity — used to break/continue streak
+    lastActivityDate: { type: String, default: null },
   },
   {
     timestamps: true,
