@@ -16,6 +16,9 @@ const AnswerSchema = new mongoose.Schema(
     selectedAnswer: { type: Number, min: 0, max: 2, default: null },
     correctAnswer: { type: Number, min: 0, max: 2, required: true },
     isCorrect: { type: Boolean, required: true },
+    // Required by the Bayesian grading engine for E_i shrinkage + speed-bucket logic.
+    // Store 0 for skipped/unanswered questions; gradeAttempt treats >70000ms as UNATTEMPTED.
+    responseTimeMs: { type: Number, required: true, min: 0, default: 0 },
   },
   { _id: false }
 );
