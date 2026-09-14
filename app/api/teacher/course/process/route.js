@@ -35,11 +35,12 @@ export async function POST() {
       return NextResponse.json({ course });
     }
 
-    // Mark as processing before calling Gemini.
-    course.status = 'processing';
-    course.processingError = null;
-    course.generatedStructure = null;
-    await course.save();
+    if (course.confirmedAt) {
+      return NextResponse.json(
+        { error: 'Cannot regenerate a confirmed roadmap.' },
+        { status: 409 }
+      );
+    }
 
     let structure;
     try {
@@ -49,20 +50,19 @@ export async function POST() {
         course.title
       );
     } catch (geminiErr) {
-      // Gemini failed — record the error, do not save invalid data.
-      course.status = 'failed';
-      course.processingError = geminiErr.message || 'Processing failed. Please try again.';
-      await course.save();
-
+      // Gemini failed — ZERO database mutation
       return NextResponse.json(
-        { error: course.processingError, course },
+        { error: geminiErr.message || 'Processing failed. Please try again.' },
         { status: 422 }
       );
     }
 
     // Structure validated inside generateCourseStructure — safe to persist.
+    // Atomic update
     course.status = 'ready';
-    course.generatedStructure = structure;
+    course.generatedStructure = { levels: structure.levels };
+    course.teachingPlan = structure.teachingPlan;
+    course.videoChunks = []; // clear stale video chunks on successful regeneration
     course.processingError = null;
     await course.save();
 

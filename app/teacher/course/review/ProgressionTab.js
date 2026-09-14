@@ -26,6 +26,12 @@ export default function ProgressionTab({ levels }) {
   }, []);
 
   async function toggleConcept(levelOrder, conceptOrder, currentCompleted) {
+    if (currentCompleted) {
+      if (!window.confirm('Mark this concept as not taught? Students may lose access to dependent levels based on the corrected progression. Existing assessment results will not be deleted.')) {
+        return;
+      }
+    }
+
     // Optimistic update
     const previousMap = { ...progressionMap };
     const levelState = progressionMap[levelOrder] || { completedConceptOrders: [] };

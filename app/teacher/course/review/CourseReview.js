@@ -5,10 +5,16 @@ import { useRouter } from 'next/navigation';
 import ProgressionTab from './ProgressionTab';
 import ConceptVideoSegment from './ConceptVideoSegment';
 
-function LevelCard({ level, index, courseConfirmed, videoChunks }) {
+function LevelCard({ level, index, courseConfirmed, videoChunks, onMutate, totalLevels }) {
   const [open, setOpen] = useState(index === 0);
   const [quizStatus, setQuizStatus] = useState(courseConfirmed ? 'loading' : 'idle');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Editing state for concepts
+  const [editingConcept, setEditingConcept] = useState(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDesc, setEditDesc] = useState('');
+  const [editObj, setEditObj] = useState('');
 
   useEffect(() => {
     if (!courseConfirmed) return;
@@ -41,32 +47,70 @@ function LevelCard({ level, index, courseConfirmed, videoChunks }) {
     }
   }
 
+  function startEditConcept(concept) {
+    setEditingConcept(concept.order);
+    setEditTitle(concept.title || '');
+    setEditDesc(concept.description || '');
+    setEditObj((concept.learningObjectives || []).join('\n'));
+  }
+
+  function saveEditConcept(conceptOrder) {
+    const objectives = editObj.split('\n').map(s => s.trim()).filter(Boolean);
+    onMutate({
+      action: 'edit-concept',
+      levelOrder: level.order,
+      conceptOrder,
+      title: editTitle,
+      description: editDesc,
+      learningObjectives: objectives
+    });
+    setEditingConcept(null);
+  }
+
+  const levelOrder = level.order ?? index + 1;
+
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/5 transition-colors duration-150"
-        aria-expanded={open}
-      >
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-600/30 text-indigo-300 text-xs font-bold shrink-0">
-            {level.order ?? index + 1}
-          </span>
-          <div>
-            <p className="text-sm font-semibold text-white">{level.title}</p>
-            {level.description && (
-              <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{level.description}</p>
-            )}
+      <div className="flex items-center bg-white/5 pr-2">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex-1 flex items-center justify-between px-5 py-4 text-left hover:bg-white/5 transition-colors duration-150"
+          aria-expanded={open}
+        >
+          <div className="flex items-center gap-3">
+            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-600/30 text-indigo-300 text-xs font-bold shrink-0">
+              {levelOrder}
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-white">{level.title}</p>
+              {level.description && (
+                <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">{level.description}</p>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 ml-4">
-          <span className="text-xs text-gray-500">{level.concepts?.length ?? 0} concepts</span>
-          <svg className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </div>
-      </button>
+          <div className="flex items-center gap-2 shrink-0 ml-4">
+            <span className="text-xs text-gray-500">{level.concepts?.length ?? 0} concepts</span>
+            <svg className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </button>
+
+        {!courseConfirmed && (
+          <div className="flex items-center gap-1 px-2">
+            <button onClick={() => onMutate({ action: 'reorder-level', levelOrder, direction: 'up' })} disabled={index === 0} className="p-1 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">
+              ↑
+            </button>
+            <button onClick={() => onMutate({ action: 'reorder-level', levelOrder, direction: 'down' })} disabled={index === totalLevels - 1} className="p-1 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">
+              ↓
+            </button>
+            <button onClick={() => { if(window.confirm('Delete this level and its concepts? This cannot be undone.')) onMutate({ action: 'delete-level', levelOrder }) }} className="p-1 text-red-400 hover:text-red-300">
+              Del
+            </button>
+          </div>
+        )}
+      </div>
 
       {open && (
         <div className="border-t border-white/10">
@@ -84,7 +128,6 @@ function LevelCard({ level, index, courseConfirmed, videoChunks }) {
               )}
               {quizStatus === 'generating' && (
                 <span className="inline-flex items-center px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs font-medium text-indigo-400">
-                  <svg className="animate-spin -ml-1 mr-2 h-3 w-3 text-indigo-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                   Generating...
                 </span>
               )}
@@ -106,28 +149,55 @@ function LevelCard({ level, index, courseConfirmed, videoChunks }) {
             <div key={ci} className="px-5 py-4">
               <div className="flex items-start gap-3">
                 <span className="text-xs text-gray-600 mt-0.5 font-mono">
-                  {(level.order ?? index + 1)}.{concept.order ?? ci + 1}
+                  {levelOrder}.{concept.order ?? ci + 1}
                 </span>
+                
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white">{concept.title}</p>
-                  {concept.description && <p className="text-xs text-gray-400 mt-1">{concept.description}</p>}
-                  {concept.learningObjectives?.length > 0 && (
-                    <ul className="mt-2 space-y-1">
-                      {concept.learningObjectives.map((obj, oi) => (
-                        <li key={oi} className="flex items-start gap-2 text-xs text-gray-500">
-                          <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
-                          {obj}
-                        </li>
-                      ))}
-                    </ul>
+                  {editingConcept === concept.order ? (
+                    <div className="space-y-3 bg-black/20 p-3 rounded-lg border border-white/10">
+                      <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white" placeholder="Concept Title" />
+                      <textarea value={editDesc} onChange={e => setEditDesc(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white h-20" placeholder="Description" />
+                      <textarea value={editObj} onChange={e => setEditObj(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded px-3 py-2 text-sm text-white h-24" placeholder="Learning Objectives (one per line)" />
+                      <div className="flex gap-2 justify-end">
+                        <button onClick={() => setEditingConcept(null)} className="text-xs text-gray-400 hover:text-white px-3 py-1">Cancel</button>
+                        <button onClick={() => saveEditConcept(concept.order)} className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded">Save</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm font-medium text-white">{concept.title}</p>
+                      {concept.description && <p className="text-xs text-gray-400 mt-1">{concept.description}</p>}
+                      {concept.learningObjectives?.length > 0 && (
+                        <ul className="mt-2 space-y-1">
+                          {concept.learningObjectives.map((obj, oi) => (
+                            <li key={oi} className="flex items-start gap-2 text-xs text-gray-500">
+                              <span className="text-indigo-500 mt-0.5 shrink-0">•</span>
+                              {obj}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </>
                   )}
-                  <ConceptVideoSegment
-                    courseConfirmed={courseConfirmed}
-                    levelOrder={level.order ?? index + 1}
-                    conceptOrder={concept.order ?? ci + 1}
-                    initialChunk={videoChunks?.find(vc => vc.levelOrder === (level.order ?? index + 1) && vc.conceptOrder === (concept.order ?? ci + 1))}
-                  />
+                  
+                  {!editingConcept && (
+                    <ConceptVideoSegment
+                      courseConfirmed={courseConfirmed}
+                      levelOrder={levelOrder}
+                      conceptOrder={concept.order ?? ci + 1}
+                      initialChunk={videoChunks?.find(vc => vc.levelOrder === levelOrder && vc.conceptOrder === (concept.order ?? ci + 1))}
+                    />
+                  )}
                 </div>
+
+                {!courseConfirmed && (
+                  <div className="flex flex-col gap-1 items-center">
+                    <button onClick={() => onMutate({ action: 'reorder-concept', levelOrder, conceptOrder: concept.order, direction: 'up' })} disabled={ci === 0} className="p-1 text-gray-400 hover:text-white disabled:opacity-30">↑</button>
+                    <button onClick={() => onMutate({ action: 'reorder-concept', levelOrder, conceptOrder: concept.order, direction: 'down' })} disabled={ci === (level.concepts?.length ?? 0) - 1} className="p-1 text-gray-400 hover:text-white disabled:opacity-30">↓</button>
+                    <button onClick={() => startEditConcept(concept)} className="p-1 text-indigo-400 hover:text-indigo-300 text-xs mt-1">Edit</button>
+                    <button onClick={() => { if(window.confirm('Remove this concept from the draft roadmap?')) onMutate({ action: 'delete-concept', levelOrder, conceptOrder: concept.order }) }} className="p-1 text-red-400 hover:text-red-300 text-xs">Del</button>
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -165,11 +235,56 @@ export default function CourseReview({ course }) {
   const [confirming, setConfirming] = useState(false);
   const [confirmed, setConfirmed] = useState(!!course.confirmedAt);
   const [error, setError] = useState('');
-  // Show progression tab by default if already confirmed
   const [activeTab, setActiveTab] = useState(course.confirmedAt ? 'progression' : 'curriculum');
+  
+  const [mutating, setMutating] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
 
   const levels = course.generatedStructure?.levels ?? [];
   const teachingPlan = course.teachingPlan ?? course.generatedStructure?.teachingPlan ?? [];
+
+  async function handleMutate(payload) {
+    if (mutating) return;
+    setMutating(true);
+    setError('');
+    try {
+      const res = await fetch('/api/teacher/course/structure', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to update structure.');
+      } else {
+        router.refresh();
+      }
+    } catch {
+      setError('Network error while updating structure.');
+    } finally {
+      setMutating(false);
+    }
+  }
+
+  async function handleRegenerate() {
+    if (!window.confirm('This will replace your current draft with a newly generated roadmap from the syllabus. Your current draft edits will be lost.')) return;
+    
+    setRegenerating(true);
+    setError('');
+    try {
+      const res = await fetch('/api/teacher/course/process', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Regeneration failed. Please try again.');
+      } else {
+        router.refresh();
+      }
+    } catch {
+      setError('Network error during regeneration.');
+    } finally {
+      setRegenerating(false);
+    }
+  }
 
   async function handleConfirm() {
     setError('');
@@ -182,6 +297,7 @@ export default function CourseReview({ course }) {
         return;
       }
       setConfirmed(true);
+      setActiveTab('progression');
       router.refresh();
     } catch {
       setError('Network error. Please try again.');
@@ -194,7 +310,6 @@ export default function CourseReview({ course }) {
     <div className="space-y-8">
       {/* Summary section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Syllabus source */}
         <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-5">
           <p className="text-xs text-indigo-400 font-semibold uppercase tracking-wide mb-1">Generated from Syllabus</p>
           <p className="text-sm text-gray-300">
@@ -207,7 +322,6 @@ export default function CourseReview({ course }) {
           </div>
         </div>
 
-        {/* Reference video */}
         {course.youtubeUrl && (
           <div className="rounded-xl border border-white/10 bg-white/5 p-5">
             <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-1">Reference Video</p>
@@ -224,14 +338,16 @@ export default function CourseReview({ course }) {
         )}
       </div>
 
-      {/* Error */}
       {error && (
         <div role="alert" className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
           {error}
         </div>
       )}
 
-      {/* Tabs */}
+      {mutating && (
+        <div className="text-sm text-indigo-400 animate-pulse">Updating roadmap structure...</div>
+      )}
+
       <div>
         <div className="border-b border-white/10 mb-5 flex gap-6">
           <button
@@ -273,11 +389,18 @@ export default function CourseReview({ course }) {
           )}
         </div>
 
-        {/* Tab content */}
         {activeTab === 'curriculum' && (
           <div className="space-y-3">
             {levels.map((level, i) => (
-              <LevelCard key={i} level={level} index={i} courseConfirmed={confirmed} videoChunks={course.videoChunks} />
+              <LevelCard 
+                key={level.order || i} 
+                level={level} 
+                index={i} 
+                courseConfirmed={confirmed} 
+                videoChunks={course.videoChunks} 
+                onMutate={handleMutate}
+                totalLevels={levels.length}
+              />
             ))}
           </div>
         )}
@@ -295,7 +418,6 @@ export default function CourseReview({ course }) {
         )}
       </div>
 
-      {/* Actions */}
       <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-white/10">
         {confirmed ? (
           <div className="flex items-center gap-2">
@@ -310,31 +432,41 @@ export default function CourseReview({ course }) {
             </span>
           </div>
         ) : (
-          <button
-            id="confirm-structure-btn"
-            type="button"
-            onClick={handleConfirm}
-            disabled={confirming}
-            aria-busy={confirming}
-            className="
-              flex items-center justify-center gap-2
-              rounded-lg bg-emerald-600 px-6 py-2.5
-              text-sm font-medium text-white
-              hover:bg-emerald-500 active:scale-[0.98]
-              disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100
-              transition-all duration-150
-            "
-          >
-            {confirming ? 'Confirming…' : '✓ Confirm Structure & Plan'}
-          </button>
+          <>
+            <button
+              id="confirm-structure-btn"
+              type="button"
+              onClick={handleConfirm}
+              disabled={confirming || regenerating || mutating}
+              aria-busy={confirming}
+              className="
+                flex items-center justify-center gap-2
+                rounded-lg bg-emerald-600 px-6 py-2.5
+                text-sm font-medium text-white
+                hover:bg-emerald-500 active:scale-[0.98]
+                disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100
+                transition-all duration-150
+              "
+            >
+              {confirming ? 'Confirming…' : '✓ Confirm Structure & Plan'}
+            </button>
+            <button
+              type="button"
+              onClick={handleRegenerate}
+              disabled={regenerating || confirming || mutating}
+              className="
+                flex items-center justify-center gap-2
+                rounded-lg bg-white/10 border border-white/20 px-6 py-2.5
+                text-sm font-medium text-white
+                hover:bg-white/20 active:scale-[0.98]
+                disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100
+                transition-all duration-150
+              "
+            >
+              {regenerating ? 'Regenerating…' : '⟳ Regenerate Roadmap'}
+            </button>
+          </>
         )}
-
-        <a
-          href="/teacher/course/setup"
-          className="text-sm text-gray-400 hover:text-white transition-colors duration-150"
-        >
-          ← Edit Setup & Re-process
-        </a>
       </div>
     </div>
   );
