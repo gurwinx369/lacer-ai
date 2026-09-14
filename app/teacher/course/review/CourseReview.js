@@ -2,13 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import ProgressionTab from './ProgressionTab';
 
 function LevelCard({ level, index }) {
   const [open, setOpen] = useState(index === 0); // First level open by default.
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
-      {/* Level header */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -28,20 +28,12 @@ function LevelCard({ level, index }) {
         </div>
         <div className="flex items-center gap-2 shrink-0 ml-4">
           <span className="text-xs text-gray-500">{level.concepts?.length ?? 0} concepts</span>
-          <svg
-            className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            aria-hidden="true"
-          >
+          <svg className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </div>
       </button>
 
-      {/* Concepts */}
       {open && (
         <div className="border-t border-white/10 divide-y divide-white/5">
           {(level.concepts ?? []).map((concept, ci) => (
@@ -52,9 +44,7 @@ function LevelCard({ level, index }) {
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white">{concept.title}</p>
-                  {concept.description && (
-                    <p className="text-xs text-gray-400 mt-1">{concept.description}</p>
-                  )}
+                  {concept.description && <p className="text-xs text-gray-400 mt-1">{concept.description}</p>}
                   {concept.learningObjectives?.length > 0 && (
                     <ul className="mt-2 space-y-1">
                       {concept.learningObjectives.map((obj, oi) => (
@@ -75,13 +65,38 @@ function LevelCard({ level, index }) {
   );
 }
 
+function TeachingPlanDay({ day }) {
+  return (
+    <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-sm font-bold text-white">Day {day.day}</h4>
+        <span className="text-xs font-medium text-gray-500">{day.estimatedMinutes} mins</span>
+      </div>
+      <p className="text-sm text-indigo-300 font-medium mb-3">{day.objective}</p>
+      <div className="space-y-1">
+        {(day.topics ?? []).map((topic, idx) => (
+          <div key={idx} className="flex items-center gap-2">
+            <svg className="h-3 w-3 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+            </svg>
+            <span className="text-xs text-gray-300">{topic}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function CourseReview({ course }) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [confirmed, setConfirmed] = useState(!!course.confirmedAt);
   const [error, setError] = useState('');
+  // Show progression tab by default if already confirmed
+  const [activeTab, setActiveTab] = useState(course.confirmedAt ? 'progression' : 'curriculum');
 
   const levels = course.generatedStructure?.levels ?? [];
+  const teachingPlan = course.teachingPlan ?? course.generatedStructure?.teachingPlan ?? [];
 
   async function handleConfirm() {
     setError('');
@@ -103,40 +118,36 @@ export default function CourseReview({ course }) {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Summary bar */}
-      <div className="rounded-xl border border-white/10 bg-white/5 px-5 py-4 flex flex-wrap items-center gap-4">
-        <div>
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Course</p>
-          <p className="text-sm font-semibold text-white mt-0.5">{course.title}</p>
-        </div>
-        <div className="w-px h-8 bg-white/10 hidden sm:block" />
-        <div>
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Levels</p>
-          <p className="text-sm font-semibold text-white mt-0.5">{levels.length}</p>
-        </div>
-        <div className="w-px h-8 bg-white/10 hidden sm:block" />
-        <div>
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Concepts</p>
-          <p className="text-sm font-semibold text-white mt-0.5">
-            {levels.reduce((sum, l) => sum + (l.concepts?.length ?? 0), 0)}
+    <div className="space-y-8">
+      {/* Summary section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Syllabus source */}
+        <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-5">
+          <p className="text-xs text-indigo-400 font-semibold uppercase tracking-wide mb-1">Generated from Syllabus</p>
+          <p className="text-sm text-gray-300">
+            {course.syllabusFileMeta?.originalName || 'Syllabus text'}
           </p>
+          <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
+            <span>{levels.length} Levels</span>
+            <span>{levels.reduce((sum, l) => sum + (l.concepts?.length ?? 0), 0)} Concepts</span>
+            <span>{teachingPlan.length} Days</span>
+          </div>
         </div>
+
+        {/* Reference video */}
         {course.youtubeUrl && (
-          <>
-            <div className="w-px h-8 bg-white/10 hidden sm:block" />
-            <div>
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Reference Video</p>
-              <a
-                href={course.youtubeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors mt-0.5 block truncate max-w-[200px]"
-              >
-                {course.youtubeUrl}
-              </a>
-            </div>
-          </>
+          <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+            <p className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-1">Reference Video</p>
+            <a
+              href={course.youtubeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors truncate block"
+            >
+              {course.youtubeUrl}
+            </a>
+            <p className="mt-3 text-xs text-gray-500">Stored for future video-chunk extraction.</p>
+          </div>
         )}
       </div>
 
@@ -147,11 +158,68 @@ export default function CourseReview({ course }) {
         </div>
       )}
 
-      {/* Level cards */}
-      <div className="space-y-3">
-        {levels.map((level, i) => (
-          <LevelCard key={i} level={level} index={i} />
-        ))}
+      {/* Tabs */}
+      <div>
+        <div className="border-b border-white/10 mb-5 flex gap-6">
+          <button
+            type="button"
+            onClick={() => setActiveTab('curriculum')}
+            className={`pb-3 text-sm font-medium transition-colors ${
+              activeTab === 'curriculum'
+                ? 'border-b-2 border-indigo-500 text-indigo-400'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            Curriculum Structure
+          </button>
+          {teachingPlan.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('plan')}
+              className={`pb-3 text-sm font-medium transition-colors ${
+                activeTab === 'plan'
+                  ? 'border-b-2 border-indigo-500 text-indigo-400'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Daily Teaching Plan
+            </button>
+          )}
+          {confirmed && (
+            <button
+              type="button"
+              onClick={() => setActiveTab('progression')}
+              className={`pb-3 text-sm font-medium transition-colors ${
+                activeTab === 'progression'
+                  ? 'border-b-2 border-indigo-500 text-indigo-400'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              Classroom Progression
+            </button>
+          )}
+        </div>
+
+        {/* Tab content */}
+        {activeTab === 'curriculum' && (
+          <div className="space-y-3">
+            {levels.map((level, i) => (
+              <LevelCard key={i} level={level} index={i} />
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'plan' && teachingPlan.length > 0 && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {teachingPlan.map((day, i) => (
+              <TeachingPlanDay key={i} day={day} />
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'progression' && confirmed && (
+          <ProgressionTab levels={levels} />
+        )}
       </div>
 
       {/* Actions */}
@@ -159,7 +227,7 @@ export default function CourseReview({ course }) {
         {confirmed ? (
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-400">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
               Structure Confirmed
@@ -182,20 +250,9 @@ export default function CourseReview({ course }) {
               hover:bg-emerald-500 active:scale-[0.98]
               disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100
               transition-all duration-150
-              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500
             "
           >
-            {confirming ? (
-              <>
-                <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
-                </svg>
-                Confirming…
-              </>
-            ) : (
-              '✓ Confirm Structure'
-            )}
+            {confirming ? 'Confirming…' : '✓ Confirm Structure & Plan'}
           </button>
         )}
 

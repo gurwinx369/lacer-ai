@@ -32,10 +32,12 @@ const AssignmentAttemptSchema = new mongoose.Schema(
       ref: 'Assignment',
       required: true,
     },
-    level: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Level',
+    // Deterministic identity: levelOrder matches Course.generatedStructure.levels[].order.
+    // No Level model or collection — curriculum lives in Course.generatedStructure.
+    levelOrder: {
+      type: Number,
       required: true,
+      min: 1,
     },
     course: {
       type: mongoose.Schema.Types.ObjectId,

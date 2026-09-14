@@ -52,10 +52,12 @@ const AssignmentSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
-    level: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Level',
+    // Deterministic identity: levelOrder matches Course.generatedStructure.levels[].order.
+    // No Level model or collection — curriculum lives in Course.generatedStructure.
+    levelOrder: {
+      type: Number,
       required: true,
+      min: 1,
     },
     course: {
       type: mongoose.Schema.Types.ObjectId,
@@ -83,7 +85,7 @@ const AssignmentSchema = new mongoose.Schema(
 );
 
 // One assignment per level per course
-AssignmentSchema.index({ level: 1, course: 1 }, { unique: true });
+AssignmentSchema.index({ course: 1, levelOrder: 1 }, { unique: true });
 
 const Assignment =
   mongoose.models.Assignment || mongoose.model('Assignment', AssignmentSchema);

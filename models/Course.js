@@ -28,10 +28,17 @@ const CourseSchema = new mongoose.Schema(
       default: '',
     },
     // Teacher-provided reference material for Gemini processing.
+    // Extracted text from the uploaded PDF — the primary Gemini input.
     syllabus: {
       type: String,
       trim: true,
       default: '',
+    },
+    // Metadata about the uploaded PDF. Binary data is NOT stored in MongoDB.
+    syllabusFileMeta: {
+      originalName: { type: String, default: null },
+      sizeBytes:    { type: Number, default: null },
+      uploadedAt:   { type: Date,   default: null },
     },
     // Reference video URL — stored only, not fetched.
     // Transcript extraction is a future phase.
@@ -50,7 +57,14 @@ const CourseSchema = new mongoose.Schema(
       default: 'draft',
     },
     // Validated JSON structure from Gemini. Only present when status=ready.
+    // Shape: { levels: [ { title, description, order, concepts: [...] } ] }
     generatedStructure: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    // AI-generated daily teaching plan grounded in the syllabus.
+    // Shape: [ { day, topics: [string], objective: string, estimatedMinutes: number } ]
+    teachingPlan: {
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },
@@ -63,6 +77,34 @@ const CourseSchema = new mongoose.Schema(
     confirmedAt: {
       type: Date,
       default: null,
+    },
+    // Teacher concept-completion state.
+    // Each entry tracks which concepts (by order) have been marked taught in a level.
+    // Source of truth: Course.generatedStructure (canonical curriculum).
+    // Student unlock status is DERIVED dynamically — never stored separately.
+    //
+    // Shape: [{ levelOrder: Number, completedConceptOrders: [Number], updatedAt: Date }]
+    // Identity: (courseId, levelOrder) is unique within the array.
+    progression: {
+      type: [
+        {
+          levelOrder: {
+            type: Number,
+            required: true,
+            min: 1,
+          },
+          completedConceptOrders: {
+            type: [Number],
+            default: [],
+          },
+          updatedAt: {
+            type: Date,
+            default: Date.now,
+          },
+          _id: false,
+        },
+      ],
+      default: [],
     },
     // Always set from session — never from client request body.
     createdBy: {

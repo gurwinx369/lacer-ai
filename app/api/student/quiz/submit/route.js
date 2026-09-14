@@ -19,7 +19,7 @@
 
 import { NextResponse } from 'next/server';
 import mongoose from 'mongoose';
-import dbConnect from '@/lib/db';
+import { connectDB } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import Quiz from '@/models/Quiz';
 import QuizAttempt from '@/models/QuizAttempt';
@@ -48,7 +48,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'quizId, courseId, and answers are required' }, { status: 400 });
   }
 
-  await dbConnect();
+  await connectDB();
 
   // Verify quiz belongs to this course
   const quiz = await Quiz.findOne({ _id: quizId, course: courseId }).lean();
@@ -81,7 +81,7 @@ export async function POST(request) {
   const attempt = await QuizAttempt.create({
     student:        session.userId,
     quiz:           quizId,
-    level:          quiz.level,
+    levelOrder:     quiz.levelOrder,
     course:         courseId,
     answers:        answerDocs,
     score,
@@ -113,3 +113,4 @@ export async function POST(request) {
     { status: 201 },
   );
 }
+

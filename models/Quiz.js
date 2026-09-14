@@ -55,10 +55,12 @@ const QuizSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    level: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Level",
+    // Deterministic identity: courseId + levelOrder (matches Course.generatedStructure.levels[].order)
+    // No Level model or collection — curriculum lives in Course.generatedStructure.
+    levelOrder: {
+      type: Number,
       required: true,
+      min: 1,
     },
     course: {
       type: mongoose.Schema.Types.ObjectId,
@@ -77,8 +79,8 @@ const QuizSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// One quiz per serial number per level
-QuizSchema.index({ level: 1, serialNumber: 1 }, { unique: true });
+// One quiz per serial number per level per course
+QuizSchema.index({ course: 1, levelOrder: 1, serialNumber: 1 }, { unique: true });
 
 const Quiz = mongoose.models.Quiz || mongoose.model("Quiz", QuizSchema);
 

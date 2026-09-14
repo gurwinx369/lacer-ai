@@ -35,10 +35,12 @@ const QuizAttemptSchema = new mongoose.Schema(
       ref: 'Quiz',
       required: true,
     },
-    level: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Level',
+    // Deterministic identity: levelOrder matches Course.generatedStructure.levels[].order.
+    // No Level model or collection — curriculum lives in Course.generatedStructure.
+    levelOrder: {
+      type: Number,
       required: true,
+      min: 1,
     },
     course: {
       type: mongoose.Schema.Types.ObjectId,
@@ -63,6 +65,7 @@ const QuizAttemptSchema = new mongoose.Schema(
 // Compound index: fast per-student, per-quiz, per-course lookups
 QuizAttemptSchema.index({ student: 1, quiz: 1 });
 QuizAttemptSchema.index({ student: 1, course: 1 });
+QuizAttemptSchema.index({ student: 1, course: 1, levelOrder: 1 }); // per-level analytics
 // ponytail: no unique constraint — multiple attempts per quiz are intentional for improvement tracking
 
 const QuizAttempt =

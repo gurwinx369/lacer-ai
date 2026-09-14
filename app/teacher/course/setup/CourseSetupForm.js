@@ -3,13 +3,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-const YOUTUBE_HINT =
-  'e.g. https://www.youtube.com/watch?v=... or https://youtu.be/...';
+const YOUTUBE_HINT = 'e.g. https://www.youtube.com/watch?v=... or https://youtu.be/...';
 
 export default function CourseSetupForm({ existingCourse }) {
   const router = useRouter();
 
-  const [syllabus, setSyllabus] = useState(existingCourse?.syllabus ?? '');
+  const [syllabusFile, setSyllabusFile] = useState(null);
   const [youtubeUrl, setYoutubeUrl] = useState(existingCourse?.youtubeUrl ?? '');
   const [saving, setSaving] = useState(false);
   const [processing, setProcessing] = useState(false);
@@ -17,36 +16,63 @@ export default function CourseSetupForm({ existingCourse }) {
   const [status, setStatus] = useState(existingCourse?.status ?? 'draft');
 
   const isBusy = saving || processing;
+  const hasExistingSyllabus = !!existingCourse?.syllabusFileMeta?.originalName;
 
   async function handleSaveAndProcess(e) {
     e.preventDefault();
     setError('');
 
-    if (syllabus.trim().length < 50) {
-      setError('Syllabus must be at least 50 characters.');
+    if (!syllabusFile && !hasExistingSyllabus) {
+      setError('Please upload a PDF syllabus.');
       return;
+    }
+
+    if (syllabusFile) {
+      if (!syllabusFile.name.toLowerCase().endsWith('.pdf')) {
+        setError('Only PDF files are supported.');
+        return;
+      }
+      if (syllabusFile.size > 5 * 1024 * 1024) {
+        setError('The PDF file must be smaller than 5 MB.');
+        return;
+      }
     }
 
     // Step 1: Save course setup.
     setSaving(true);
     let saveRes;
     try {
+      const formData = new FormData();
+      if (syllabusFile) formData.append('syllabusFile', syllabusFile);
+      formData.append('youtubeUrl', youtubeUrl);
+
+      // If they didn't upload a new file, but there's an existing one,
+      // the backend would need to know we're not clearing it. Wait, the backend
+      // requires `syllabusFile`. For this MVP, if they are re-saving, they need
+      // to re-upload. To simplify: require re-upload if they want to re-process.
+      if (!syllabusFile) {
+         setError('Please upload the PDF syllabus again to re-process.');
+         setSaving(false);
+         return;
+      }
+
       const res = await fetch('/api/teacher/course', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ syllabus, youtubeUrl }),
+        body: formData,
       });
       saveRes = await res.json();
       if (!res.ok) {
         setError(saveRes.error || 'Failed to save course setup.');
+        setSaving(false);
         return;
       }
     } catch {
       setError('Network error. Please check your connection.');
-      return;
-    } finally {
       setSaving(false);
+      return;
     }
+
+    setSaving(false);
 
     // Step 2: Trigger Gemini processing.
     setProcessing(true);
@@ -78,72 +104,59 @@ export default function CourseSetupForm({ existingCourse }) {
     <form onSubmit={handleSaveAndProcess} noValidate className="space-y-6">
       {/* Error banner */}
       {error && (
-        <div
-          role="alert"
-          className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400"
-        >
+        <div role="alert" className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
           {error}
         </div>
       )}
 
       {/* Processing status banner */}
       {processing && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-4 py-3"
-        >
+        <div role="status" aria-live="polite" className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-4 py-3">
           <div className="flex items-center gap-3">
-            <svg
-              className="h-4 w-4 animate-spin text-indigo-400 shrink-0"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              aria-hidden="true"
-            >
+            <svg className="h-4 w-4 animate-spin text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
             </svg>
             <div>
               <p className="text-sm font-medium text-indigo-300">Analyzing your syllabus…</p>
               <p className="text-xs text-indigo-400/70 mt-0.5">
-                Gemini is identifying learning levels, concepts, and objectives. This may take 15–30 seconds.
+                Gemini is extracting the curriculum and generating a daily teaching plan. This may take 15–30 seconds.
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Syllabus */}
+      {/* Syllabus PDF Upload */}
       <div>
-        <label htmlFor="syllabus" className="block text-sm font-medium text-gray-300 mb-1.5">
-          Course Syllabus <span className="text-red-400">*</span>
+        <label htmlFor="syllabusFile" className="block text-sm font-medium text-gray-300 mb-1.5">
+          Syllabus PDF <span className="text-red-400">*</span>
         </label>
         <p className="text-xs text-gray-500 mb-2">
-          Paste your DSA syllabus or outline. The more detail you provide, the better the
-          generated structure will be. Minimum 50 characters.
+          Upload the course syllabus. Lacer AI uses this to build your curriculum and teaching plan.
         </p>
-        <textarea
-          id="syllabus"
-          value={syllabus}
-          onChange={(e) => setSyllabus(e.target.value)}
+        <input
+          id="syllabusFile"
+          type="file"
+          accept=".pdf"
+          onChange={(e) => setSyllabusFile(e.target.files[0] || null)}
           disabled={isBusy}
-          rows={14}
-          placeholder={`Example:\nUnit 1: Arrays and Strings\n- Array declaration and initialization\n- Array traversal and searching\n- Two-pointer technique\n- String manipulation\n\nUnit 2: Linked Lists\n- Singly linked lists\n- Doubly linked lists\n- Traversal, insertion, deletion\n...`}
           className="
-            w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-3
-            text-sm text-white placeholder:text-gray-600
-            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
+            block w-full text-sm text-gray-400
+            file:mr-4 file:py-2 file:px-4
+            file:rounded-lg file:border-0
+            file:text-sm file:font-semibold
+            file:bg-indigo-600 file:text-white
+            hover:file:bg-indigo-500
             disabled:opacity-50 disabled:cursor-not-allowed
-            resize-y transition-colors duration-150 font-mono leading-relaxed
+            transition-all
           "
         />
-        <p className="mt-1 text-xs text-gray-600">
-          {syllabus.trim().length} characters
-          {syllabus.trim().length > 0 && syllabus.trim().length < 50 && (
-            <span className="text-amber-500"> — need at least 50</span>
-          )}
-        </p>
+        {hasExistingSyllabus && !syllabusFile && (
+          <p className="mt-2 text-xs text-gray-400">
+            Previously uploaded: <span className="font-mono text-gray-300">{existingCourse.syllabusFileMeta.originalName}</span>
+          </p>
+        )}
       </div>
 
       {/* YouTube URL */}
@@ -152,8 +165,7 @@ export default function CourseSetupForm({ existingCourse }) {
           Reference YouTube Video <span className="text-red-400">*</span>
         </label>
         <p className="text-xs text-gray-500 mb-2">
-          Provide a reference DSA lecture or playlist URL. This will be stored as the course
-          reference video for future video-chunk recommendations.
+          Add a reference video. This will be used as learning material for relevant concepts.
         </p>
         <input
           id="youtubeUrl"
@@ -172,15 +184,6 @@ export default function CourseSetupForm({ existingCourse }) {
         />
         <p className="mt-1 text-xs text-gray-600">
           Accepted: youtube.com/watch?v=… or youtu.be/…
-        </p>
-      </div>
-
-      {/* Note about YouTube */}
-      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3">
-        <p className="text-xs text-amber-400/80">
-          <span className="font-medium text-amber-400">Note:</span> Lacer AI will structure the
-          course from your syllabus text. The YouTube URL is stored as a reference for future
-          video-chunk recommendations — video content is not analyzed in this release.
         </p>
       </div>
 
@@ -203,17 +206,11 @@ export default function CourseSetupForm({ existingCourse }) {
         >
           {isBusy ? (
             <>
-              <svg
-                className="h-4 w-4 animate-spin"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
+              <svg className="h-4 w-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
               </svg>
-              {saving ? 'Saving…' : 'Processing with Gemini…'}
+              {saving ? 'Uploading…' : 'Processing with Gemini…'}
             </>
           ) : (
             'Save & Process with Gemini'

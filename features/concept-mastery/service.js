@@ -5,7 +5,7 @@
  * Supplies all history to the pure engine functions; persists results atomically.
  */
 
-import dbConnect from '@/lib/db';
+import { connectDB } from '@/lib/db';
 import ConceptMastery from '@/models/ConceptMastery';
 import { computeEiIncremental, gradeAttempt, classifyConcept } from './engine';
 
@@ -24,7 +24,7 @@ import { computeEiIncremental, gradeAttempt, classifyConcept } from './engine';
  * @returns {Promise<{ conceptVerdicts: Object }>}
  */
 export async function gradeAndPersist(studentId, courseId, quizAttemptId, answers) {
-  await dbConnect();
+  await connectDB();
 
   // Upsert the mastery doc so it exists before we read it.
   // findOneAndUpdate with $setOnInsert handles first-doc concurrency safely.
@@ -136,7 +136,7 @@ export async function gradeAndPersist(studentId, courseId, quizAttemptId, answer
  * @returns {Promise<Object|null>} raw conceptMastery map or null if not found
  */
 export async function getConceptMastery(studentId, courseId) {
-  await dbConnect();
+  await connectDB();
   const doc = await ConceptMastery
     .findOne({ student: studentId, course: courseId })
     .select('conceptMastery')
@@ -164,3 +164,4 @@ function _extractVerdicts(masteryMapOrObj) {
     }])
   );
 }
+
