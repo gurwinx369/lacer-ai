@@ -136,7 +136,7 @@ export default function QuizTakingPage() {
       const data = await res.json();
 
       if (res.ok) {
-        setResult(data);
+        router.push(`/student/course/${levelOrder}/quizzes/${quizId}/results?attemptId=${data.attemptId}`);
       } else {
         setError(data.error || 'Submission failed');
       }
@@ -162,35 +162,7 @@ export default function QuizTakingPage() {
     );
   }
 
-  if (result) {
-    return (
-      <div className="min-h-screen bg-gray-950 text-white flex items-center justify-center p-4">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-8 max-w-md w-full text-center">
-          <h2 className="text-2xl font-bold mb-2">Quiz Completed!</h2>
-          <p className="text-gray-400 mb-6">Your answers have been recorded.</p>
-          
-          <div className="flex justify-center items-center gap-4 mb-8">
-            <div className="text-center">
-              <span className="block text-4xl font-black text-indigo-400">{result.score}</span>
-              <span className="text-xs text-gray-500 uppercase tracking-wider">Correct</span>
-            </div>
-            <div className="text-3xl font-light text-white/20">/</div>
-            <div className="text-center">
-              <span className="block text-4xl font-black text-white">{result.totalQuestions}</span>
-              <span className="text-xs text-gray-500 uppercase tracking-wider">Total</span>
-            </div>
-          </div>
 
-          <Link
-            href={`/student/course/${levelOrder}`}
-            className="block w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 transition-colors font-medium"
-          >
-            Return to Level
-          </Link>
-        </div>
-      </div>
-    );
-  }
 
   const currentQuestion = quiz.questions[currentQuestionIdx];
   const currentAnswer = answers[currentQuestion.serialNumber]?.selectedAnswer;
