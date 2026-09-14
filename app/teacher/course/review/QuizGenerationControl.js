@@ -57,36 +57,36 @@ export default function QuizGenerationControl({ levelOrder, levelTitle, courseCo
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 px-4 py-3 rounded-xl border border-white/10 bg-white/5">
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 py-4 hover:bg-zinc-50 transition-colors">
       {/* Level identity */}
-      <div className="flex items-center gap-3 min-w-0">
-        <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-indigo-600/30 text-indigo-300 text-xs font-bold shrink-0">
+      <div className="flex items-center gap-4 min-w-0">
+        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-600 text-sm font-bold shrink-0">
           {levelOrder}
         </span>
         <div className="min-w-0">
-          <p className="text-sm font-medium text-white truncate">{levelTitle}</p>
+          <p className="text-base font-bold text-zinc-900 truncate tracking-tight">{levelTitle}</p>
           {status === 'error' && (
-            <p className="text-xs text-red-400 mt-0.5 truncate">{errorMsg}</p>
+            <p className="text-xs font-semibold text-rose-500 mt-0.5 truncate">{errorMsg}</p>
           )}
         </div>
       </div>
 
       {/* Action / status badge */}
-      <div className="shrink-0">
+      <div className="shrink-0 pt-2 sm:pt-0">
         {status === 'loading' && (
-          <span className="text-xs text-gray-500 animate-pulse">Checking...</span>
+          <span className="text-xs font-bold text-zinc-400 animate-pulse uppercase tracking-widest">Checking...</span>
         )}
         {status === 'ready' && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-medium text-emerald-400">
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-100 text-xs font-bold text-emerald-700">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
             </svg>
             5 Quizzes Ready
           </span>
         )}
         {status === 'generating' && (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs font-medium text-indigo-400">
-            <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-50 border border-amber-100 text-xs font-bold text-amber-700">
+            <svg className="h-4 w-4 animate-spin text-amber-500" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
             </svg>
@@ -98,7 +98,7 @@ export default function QuizGenerationControl({ levelOrder, levelTitle, courseCo
             type="button"
             onClick={handleGenerate}
             disabled={!courseConfirmed}
-            className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed text-xs font-medium text-white transition-colors active:scale-95"
+            className="btn-press-ghost rounded-xl px-5 py-2.5 text-xs font-bold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {status === 'error' ? 'Retry' : 'Generate 5 Quizzes'}
           </button>

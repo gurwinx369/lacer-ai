@@ -118,15 +118,15 @@ export default function ProgressionTab({ levels }) {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   if (loading) {
-    return <div className="text-gray-400 text-sm animate-pulse">Loading progression state...</div>;
+    return <div className="text-zinc-500 font-medium text-sm animate-pulse">Loading progression state...</div>;
   }
 
   if (error) {
-    return <div className="text-red-400 text-sm">Error: {error}</div>;
+    return <div className="text-rose-500 font-bold text-sm">Error: {error}</div>;
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {levels.map((level, i) => {
         const pState = progressionMap[level.order] || {
           completedConceptOrders: [],
@@ -148,29 +148,29 @@ export default function ProgressionTab({ levels }) {
             : (progressionMap[level.order - 1]?.levelTaught === true);
 
         return (
-          <div key={i} className="rounded-xl border border-white/10 bg-white/5 overflow-hidden">
+          <div key={i} className="rounded-2xl border border-black/[0.04] bg-white shadow-sm overflow-hidden transition-shadow hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
             {/* Level header + Mark Level Taught control */}
-            <div className="px-5 py-4 border-b border-white/10 bg-white/5">
-              <div className="flex items-start justify-between gap-4">
+            <div className="px-6 py-5 border-b border-zinc-100 bg-white">
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                 {/* Identity */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-start gap-4">
                   <span
-                    className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold shrink-0 ${
+                    className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold shrink-0 border ${
                       levelTaught
-                        ? 'bg-emerald-500/20 text-emerald-400'
-                        : 'bg-indigo-600/30 text-indigo-300'
+                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                        : 'bg-zinc-100 text-zinc-500 border-zinc-200'
                     }`}
                   >
                     {level.order}
                   </span>
                   <div>
-                    <h3 className="text-sm font-semibold text-white">{level.title}</h3>
-                    <div className="text-xs mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
-                      <span className={levelTaught ? 'text-emerald-400' : 'text-gray-400'}>
+                    <h3 className="text-base font-bold text-zinc-900 tracking-tight">{level.title}</h3>
+                    <div className="text-xs mt-1.5 flex flex-wrap gap-x-2 gap-y-1 font-semibold">
+                      <span className={levelTaught ? 'text-emerald-600' : 'text-zinc-500'}>
                         {completedCount} / {totalCount} Concepts Tracked
                       </span>
-                      <span className="text-gray-600">•</span>
-                      <span className={studentUnlocked ? 'text-indigo-400' : 'text-gray-500'}>
+                      <span className="text-zinc-300">•</span>
+                      <span className={studentUnlocked ? 'text-emerald-600' : 'text-zinc-400'}>
                         {studentUnlocked ? '🔓 Unlocked for Students' : '🔒 Locked'}
                       </span>
                     </div>
@@ -178,12 +178,12 @@ export default function ProgressionTab({ levels }) {
                 </div>
 
                 {/* Mark Level Taught control */}
-                <div className="shrink-0">
+                <div className="shrink-0 pt-2 sm:pt-0">
                   {levelTaught ? (
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-xs font-medium text-emerald-400">
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-100 text-xs font-bold text-emerald-700">
+                        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                         </svg>
                         Level Taught
                       </span>
@@ -191,13 +191,13 @@ export default function ProgressionTab({ levels }) {
                         type="button"
                         onClick={() => toggleLevelTaught(level.order, true)}
                         disabled={isBusy}
-                        className="text-xs text-gray-500 hover:text-red-400 transition-colors disabled:opacity-40 px-1"
+                        className="text-[11px] font-bold text-zinc-400 hover:text-rose-500 transition-colors disabled:opacity-40 px-1"
                       >
                         {isBusy ? '...' : 'Unmark'}
                       </button>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-end gap-1">
+                    <div className="flex flex-col items-end gap-2">
                       <button
                         type="button"
                         id={`mark-taught-level-${level.order}`}
@@ -209,18 +209,17 @@ export default function ProgressionTab({ levels }) {
                             : `Mark Level ${level.order} as taught`
                         }
                         className={`
-                          inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all
                           ${
                             prevLevelTaught
-                              ? 'bg-indigo-600 hover:bg-indigo-500 text-white active:scale-95'
-                              : 'bg-white/5 border border-white/10 text-gray-600 cursor-not-allowed'
+                              ? 'btn-press-emerald text-white'
+                              : 'bg-zinc-100 border border-zinc-200 text-zinc-400 cursor-not-allowed'
                           }
-                          disabled:opacity-60
+                          inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl text-xs font-bold transition-all disabled:opacity-60
                         `}
                       >
                         {isBusy ? (
                           <>
-                            <svg className="h-3.5 w-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+                            <svg className="h-4 w-4 animate-spin text-current" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                             </svg>
@@ -228,15 +227,15 @@ export default function ProgressionTab({ levels }) {
                           </>
                         ) : (
                           <>
-                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
                             </svg>
                             Mark Level Taught
                           </>
                         )}
                       </button>
                       {!prevLevelTaught && level.order > 1 && (
-                        <span className="text-xs text-amber-500/70">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-amber-500">
                           Teach Level {level.order - 1} first
                         </span>
                       )}
@@ -247,24 +246,24 @@ export default function ProgressionTab({ levels }) {
             </div>
 
             {/* Concept tracking section */}
-            <div>
-              <div className="px-5 py-2 bg-black/10">
-                <p className="text-xs font-medium text-gray-600 uppercase tracking-wider">
+            <div className="bg-zinc-50/50">
+              <div className="px-6 py-3 border-b border-zinc-100">
+                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
                   Concept Tracking (analytics only)
                 </p>
               </div>
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-zinc-100">
                 {(level.concepts || []).map((concept, ci) => {
                   const isCompleted = pState.completedConceptOrders.includes(concept.order);
                   return (
                     <div
                       key={ci}
-                      className="px-5 py-3 flex items-center justify-between hover:bg-white/5 transition-colors"
+                      className="px-6 py-4 flex items-center justify-between hover:bg-white transition-colors"
                     >
-                      <div className="flex flex-col">
+                      <div className="flex flex-col pr-4">
                         <span
-                          className={`text-sm font-medium ${
-                            isCompleted ? 'text-gray-400 line-through' : 'text-gray-200'
+                          className={`text-sm font-bold ${
+                            isCompleted ? 'text-zinc-400 line-through' : 'text-zinc-900'
                           }`}
                         >
                           {concept.title}
@@ -275,9 +274,9 @@ export default function ProgressionTab({ levels }) {
                         type="button"
                         onClick={() => toggleConcept(level.order, concept.order, isCompleted)}
                         className={`
-                          relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent
-                          transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-900
-                          ${isCompleted ? 'bg-emerald-500' : 'bg-gray-700'}
+                          relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent
+                          transition-colors duration-200 ease-out-expo focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2
+                          ${isCompleted ? 'bg-emerald-500' : 'bg-zinc-300'}
                         `}
                         role="switch"
                         aria-checked={isCompleted}
@@ -285,9 +284,9 @@ export default function ProgressionTab({ levels }) {
                       >
                         <span
                           className={`
-                            pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0
-                            transition duration-200 ease-in-out
-                            ${isCompleted ? 'translate-x-4' : 'translate-x-0'}
+                            pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0
+                            transition duration-200 ease-out-expo
+                            ${isCompleted ? 'translate-x-5' : 'translate-x-0'}
                           `}
                         />
                       </button>

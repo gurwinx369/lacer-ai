@@ -49,39 +49,39 @@ function LevelCard({
   const levelOrder = level.order ?? index + 1;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
-      <div className="flex items-center bg-white/5 pr-2">
+    <div className="overflow-hidden rounded-2xl border border-black/[0.04] bg-white shadow-sm transition-shadow hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+      <div className="flex items-center bg-white pr-2">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex flex-1 items-center justify-between px-5 py-4 text-left transition-colors duration-150 hover:bg-white/5"
+          className="flex flex-1 items-center justify-between px-6 py-5 text-left transition-colors duration-150 hover:bg-zinc-50"
           aria-expanded={open}
         >
-          <div className="flex items-center gap-3">
-            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-indigo-600/30 text-xs font-bold text-indigo-300">
+          <div className="flex items-center gap-4">
+            <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-sm font-bold text-emerald-600 border border-emerald-100">
               {levelOrder}
             </span>
 
             <div>
-              <p className="text-sm font-semibold text-white">
+              <p className="text-base font-bold text-zinc-900 tracking-tight">
                 {level.title}
               </p>
 
               {level.description && (
-                <p className="mt-0.5 line-clamp-1 text-xs text-gray-400">
+                <p className="mt-0.5 line-clamp-1 text-sm text-zinc-500">
                   {level.description}
                 </p>
               )}
             </div>
           </div>
 
-          <div className="ml-4 flex shrink-0 items-center gap-2">
-            <span className="text-xs text-gray-500">
+          <div className="ml-4 flex shrink-0 items-center gap-3">
+            <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-bold text-zinc-600">
               {level.concepts?.length ?? 0} concepts
             </span>
 
             <svg
-              className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : ''
+              className={`h-5 w-5 text-zinc-400 transition-transform duration-200 ${open ? 'rotate-180' : ''
                 }`}
               xmlns="http://www.w3.org/2000/svg"
               fill="none"
@@ -99,7 +99,7 @@ function LevelCard({
         </button>
 
         {!courseConfirmed && (
-          <div className="flex items-center gap-1 px-2">
+          <div className="flex items-center gap-2 px-3">
             <button
               type="button"
               onClick={() =>
@@ -110,7 +110,7 @@ function LevelCard({
                 })
               }
               disabled={index === 0}
-              className="p-1 text-gray-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+              className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-30"
             >
               ↑
             </button>
@@ -125,7 +125,7 @@ function LevelCard({
                 })
               }
               disabled={index === totalLevels - 1}
-              className="p-1 text-gray-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
+              className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-md transition-colors disabled:cursor-not-allowed disabled:opacity-30"
             >
               ↓
             </button>
@@ -144,7 +144,7 @@ function LevelCard({
                   });
                 }
               }}
-              className="p-1 text-red-400 hover:text-red-300"
+              className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-md transition-colors"
             >
               Del
             </button>
@@ -153,48 +153,48 @@ function LevelCard({
       </div>
 
       {open && (
-        <div className="border-t border-white/10">
-          <div className="divide-y divide-white/5">
+        <div className="border-t border-zinc-100 bg-zinc-50/50">
+          <div className="divide-y divide-zinc-100">
             {(level.concepts ?? []).map((concept, ci) => {
               const conceptOrder = concept.order ?? ci + 1;
 
               return (
-                <div key={ci} className="px-5 py-4">
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 font-mono text-xs text-gray-600">
+                <div key={ci} className="px-6 py-5">
+                  <div className="flex items-start gap-4">
+                    <span className="mt-0.5 font-mono text-[11px] font-semibold text-zinc-400">
                       {levelOrder}.{conceptOrder}
                     </span>
 
                     <div className="min-w-0 flex-1">
                       {editingConcept === concept.order ? (
-                        <div className="space-y-3 rounded-lg border border-white/10 bg-black/20 p-3">
+                        <div className="space-y-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
                           <input
                             type="text"
                             value={editTitle}
                             onChange={(e) => setEditTitle(e.target.value)}
-                            className="w-full rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white"
+                            className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-semibold text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                             placeholder="Concept Title"
                           />
 
                           <textarea
                             value={editDesc}
                             onChange={(e) => setEditDesc(e.target.value)}
-                            className="h-20 w-full rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white"
+                            className="h-20 w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                             placeholder="Description"
                           />
 
                           <textarea
                             value={editObj}
                             onChange={(e) => setEditObj(e.target.value)}
-                            className="h-24 w-full rounded border border-white/10 bg-black/40 px-3 py-2 text-sm text-white"
+                            className="h-24 w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                             placeholder="Learning Objectives (one per line)"
                           />
 
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-3 pt-2">
                             <button
                               type="button"
                               onClick={() => setEditingConcept(null)}
-                              className="px-3 py-1 text-xs text-gray-400 hover:text-white"
+                              className="px-4 py-2 text-xs font-bold text-zinc-500 hover:text-zinc-900 transition-colors"
                             >
                               Cancel
                             </button>
@@ -202,7 +202,7 @@ function LevelCard({
                             <button
                               type="button"
                               onClick={() => saveEditConcept(conceptOrder)}
-                              className="rounded bg-indigo-600 px-3 py-1 text-xs text-white hover:bg-indigo-500"
+                              className="btn-press-emerald rounded-lg px-4 py-2 text-xs font-bold text-white"
                             >
                               Save
                             </button>
@@ -210,25 +210,27 @@ function LevelCard({
                         </div>
                       ) : (
                         <>
-                          <p className="text-sm font-medium text-white">
+                          <p className="text-sm font-bold text-zinc-900">
                             {concept.title}
                           </p>
 
                           {concept.description && (
-                            <p className="mt-1 text-xs text-gray-400">
+                            <p className="mt-1 text-sm text-zinc-500 leading-relaxed max-w-3xl">
                               {concept.description}
                             </p>
                           )}
 
                           {concept.learningObjectives?.length > 0 && (
-                            <ul className="mt-2 space-y-1">
+                            <ul className="mt-3 space-y-1.5">
                               {concept.learningObjectives.map((obj, oi) => (
                                 <li
                                   key={oi}
-                                  className="flex items-start gap-2 text-xs text-gray-500"
+                                  className="flex items-start gap-2 text-sm text-zinc-600"
                                 >
-                                  <span className="mt-0.5 shrink-0 text-indigo-500">
-                                    •
+                                  <span className="mt-1 shrink-0 text-emerald-500">
+                                    <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                                      <circle cx="6" cy="6" r="3" />
+                                    </svg>
                                   </span>
                                   {obj}
                                 </li>
@@ -253,7 +255,7 @@ function LevelCard({
                     </div>
 
                     {!courseConfirmed && (
-                      <div className="flex flex-col items-center gap-1">
+                      <div className="flex flex-col items-center gap-1.5 pl-4">
                         <button
                           type="button"
                           onClick={() =>
@@ -265,7 +267,7 @@ function LevelCard({
                             })
                           }
                           disabled={ci === 0}
-                          className="p-1 text-gray-400 hover:text-white disabled:opacity-30"
+                          className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-md transition-colors disabled:opacity-30"
                         >
                           ↑
                         </button>
@@ -283,7 +285,7 @@ function LevelCard({
                           disabled={
                             ci === (level.concepts?.length ?? 0) - 1
                           }
-                          className="p-1 text-gray-400 hover:text-white disabled:opacity-30"
+                          className="p-1.5 text-zinc-400 hover:text-zinc-900 hover:bg-zinc-100 rounded-md transition-colors disabled:opacity-30"
                         >
                           ↓
                         </button>
@@ -291,7 +293,7 @@ function LevelCard({
                         <button
                           type="button"
                           onClick={() => startEditConcept(concept)}
-                          className="mt-1 p-1 text-xs text-indigo-400 hover:text-indigo-300"
+                          className="mt-2 px-2 py-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 rounded-md hover:bg-emerald-100 transition-colors"
                         >
                           Edit
                         </button>
@@ -311,7 +313,7 @@ function LevelCard({
                               });
                             }
                           }}
-                          className="p-1 text-xs text-red-400 hover:text-red-300"
+                          className="mt-1 px-2 py-1 text-[11px] font-bold text-rose-500 bg-rose-50 rounded-md hover:bg-rose-100 transition-colors"
                         >
                           Del
                         </button>
@@ -330,26 +332,26 @@ function LevelCard({
 
 function TeachingPlanDay({ day }) {
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-5">
-      <div className="mb-3 flex items-center justify-between">
-        <h4 className="text-sm font-bold text-white">
+    <div className="rounded-2xl border border-black/[0.04] bg-white p-6 shadow-sm transition-shadow hover:shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
+      <div className="mb-4 flex items-center justify-between">
+        <h4 className="text-base font-bold text-zinc-900 tracking-tight">
           Day {day.day}
         </h4>
 
-        <span className="text-xs font-medium text-gray-500">
+        <span className="rounded-full bg-zinc-100 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-zinc-500">
           {day.estimatedMinutes} mins
         </span>
       </div>
 
-      <p className="mb-3 text-sm font-medium text-indigo-300">
+      <p className="mb-4 text-sm font-semibold text-emerald-600 leading-snug">
         {day.objective}
       </p>
 
-      <div className="space-y-1">
+      <div className="space-y-2">
         {(day.topics ?? []).map((topic, idx) => (
-          <div key={idx} className="flex items-center gap-2">
+          <div key={idx} className="flex items-start gap-2.5">
             <svg
-              className="h-3 w-3 text-emerald-500"
+              className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500"
               fill="currentColor"
               viewBox="0 0 20 20"
             >
@@ -360,7 +362,7 @@ function TeachingPlanDay({ day }) {
               />
             </svg>
 
-            <span className="text-xs text-gray-300">
+            <span className="text-sm text-zinc-600">
               {topic}
             </span>
           </div>
@@ -556,29 +558,35 @@ export default function CourseReview({ course }) {
   }
 
   return (
-    <div className="space-y-8">
-      {/* Summary */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-5">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-indigo-400">
+    <div className="space-y-10">
+      {/* ── Summary ── */}
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+        <div className="rounded-2xl border border-black/[0.04] bg-white p-6 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]">
+          <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-emerald-600">
             Generated from Syllabus
           </p>
 
-          <p className="text-sm text-gray-300">
+          <p className="text-base font-bold text-zinc-900 tracking-tight">
             {course.syllabusFileMeta?.originalName ||
               'Syllabus text'}
           </p>
 
-          <div className="mt-3 flex items-center gap-4 text-xs text-gray-400">
-            <span>{levels.length} Levels</span>
-            <span>{conceptCount} Concepts</span>
-            <span>{teachingPlan.length} Days</span>
+          <div className="mt-4 flex items-center gap-3">
+            <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-bold text-zinc-600">
+              {levels.length} Levels
+            </span>
+            <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-bold text-zinc-600">
+              {conceptCount} Concepts
+            </span>
+            <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-bold text-zinc-600">
+              {teachingPlan.length} Days
+            </span>
           </div>
         </div>
 
         {course.youtubeUrl && (
-          <div className="rounded-xl border border-white/10 bg-white/5 p-5">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+          <div className="rounded-2xl border border-black/[0.04] bg-white p-6 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
               Reference Video
             </p>
 
@@ -586,12 +594,12 @@ export default function CourseReview({ course }) {
               href={course.youtubeUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="block truncate text-sm text-indigo-400 transition-colors hover:text-indigo-300"
+              className="block truncate text-sm font-semibold text-emerald-600 transition-colors hover:text-emerald-500"
             >
               {course.youtubeUrl}
             </a>
 
-            <div className="mt-4 flex flex-wrap items-center gap-3">
+            <div className="mt-5 flex flex-wrap items-center gap-4">
               <button
                 type="button"
                 onClick={handleGenerateVideoMappings}
@@ -602,18 +610,12 @@ export default function CourseReview({ course }) {
                   confirming ||
                   levels.length === 0
                 }
-                className="
-                  inline-flex items-center gap-2
-                  rounded-lg bg-indigo-600 px-4 py-2
-                  text-xs font-semibold text-white
-                  transition-colors hover:bg-indigo-500
-                  disabled:cursor-not-allowed disabled:opacity-50
-                "
+                className="btn-press-ghost rounded-xl px-5 py-2.5 text-[11px] font-bold uppercase tracking-wider disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {mappingVideo ? (
-                  <>
+                  <span className="flex items-center gap-2">
                     <svg
-                      className="h-3.5 w-3.5 animate-spin"
+                      className="h-4 w-4 animate-spin text-zinc-400"
                       viewBox="0 0 24 24"
                       fill="none"
                     >
@@ -633,7 +635,7 @@ export default function CourseReview({ course }) {
                       />
                     </svg>
                     Mapping video...
-                  </>
+                  </span>
                 ) : videoChunks.length > 0 ? (
                   'Regenerate Video Mappings'
                 ) : (
@@ -642,21 +644,20 @@ export default function CourseReview({ course }) {
               </button>
 
               {videoChunks.length > 0 && (
-                <span className="text-xs text-emerald-400">
-                  {mappedConceptCount} of {conceptCount} concepts
-                  mapped
+                <span className="rounded-full bg-emerald-50 border border-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-700">
+                  {mappedConceptCount} of {conceptCount} concepts mapped
                 </span>
               )}
             </div>
 
-            <p className="mt-3 text-xs leading-relaxed text-gray-500">
+            <p className="mt-4 text-xs font-medium leading-relaxed text-zinc-500">
               AI analyzes the reference video transcript and
               maps relevant sections to the generated curriculum.
               You can correct individual timestamps below.
             </p>
 
             {mappingResult && (
-              <p className="mt-2 text-xs text-emerald-400">
+              <p className="mt-3 text-xs font-bold text-emerald-600">
                 Video mapping completed for{' '}
                 {mappingResult.mapped} concepts.
               </p>
@@ -668,43 +669,40 @@ export default function CourseReview({ course }) {
       {error && (
         <div
           role="alert"
-          className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400"
+          className="rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-semibold text-rose-700"
         >
           {error}
         </div>
       )}
 
       {mutating && (
-        <div className="animate-pulse text-sm text-indigo-400">
+        <div className="animate-pulse text-sm font-bold text-emerald-600">
           Updating roadmap structure...
         </div>
       )}
 
-      {/* Assessment Quizzes */}
+      {/* ── Assessment Quizzes ── */}
       {confirmed && levels.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
-          <div className="flex items-center justify-between border-b border-white/10 bg-indigo-500/5 px-5 py-4">
+        <div className="overflow-hidden rounded-[2rem] border border-black/[0.04] bg-white shadow-[0_20px_40px_-15px_rgba(0,0,0,0.05)]">
+          <div className="flex items-center justify-between border-b border-zinc-100 bg-zinc-50/50 px-6 py-5">
             <div>
-              <h3 className="text-sm font-semibold text-white">
+              <h3 className="text-lg font-bold tracking-tight text-zinc-900">
                 Assessment Quizzes
               </h3>
-
-              <p className="mt-0.5 text-xs text-gray-400">
-                Generate exactly 5 Gemini-powered quizzes per
-                level.
+              <p className="mt-1 text-sm text-zinc-500">
+                Generate exactly 5 AI-powered quizzes per level.
               </p>
             </div>
-
-            <span className="text-xs text-gray-500">
+            <span className="rounded-full bg-zinc-200 px-3 py-1 text-xs font-bold text-zinc-700">
               {levels.length} levels
             </span>
           </div>
 
-          <div className="divide-y divide-white/5 px-4 py-2">
+          <div className="divide-y divide-zinc-100 px-2 py-2">
             {levels.map((level) => (
               <div
                 key={level.order}
-                className="pt-2 first:pt-0"
+                className="py-1"
               >
                 <QuizGenerationControl
                   levelOrder={level.order}
@@ -717,48 +715,55 @@ export default function CourseReview({ course }) {
         </div>
       )}
 
+      {/* ── Tabs & Content ── */}
       <div>
-        <div className="mb-5 flex gap-6 border-b border-white/10">
-          <button
-            type="button"
-            onClick={() => setActiveTab('curriculum')}
-            className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'curriculum'
-                ? 'border-b-2 border-indigo-500 text-indigo-400'
-                : 'text-gray-400 hover:text-white'
+        <div className="mb-6 flex">
+          {/* Segmented Pill Control */}
+          <div className="inline-flex items-center gap-1 rounded-full bg-zinc-100 p-1.5 shadow-inner">
+            <button
+              type="button"
+              onClick={() => setActiveTab('curriculum')}
+              className={`rounded-full px-5 py-2 text-sm font-bold transition-all ${
+                activeTab === 'curriculum'
+                  ? 'bg-white text-zinc-900 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-900'
               }`}
-          >
-            Curriculum Structure
-          </button>
-
-          {teachingPlan.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('plan')}
-              className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'plan'
-                  ? 'border-b-2 border-indigo-500 text-indigo-400'
-                  : 'text-gray-400 hover:text-white'
-                }`}
             >
-              Daily Teaching Plan
+              Curriculum Structure
             </button>
-          )}
 
-          {confirmed && (
-            <button
-              type="button"
-              onClick={() => setActiveTab('progression')}
-              className={`pb-3 text-sm font-medium transition-colors ${activeTab === 'progression'
-                  ? 'border-b-2 border-indigo-500 text-indigo-400'
-                  : 'text-gray-400 hover:text-white'
+            {teachingPlan.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('plan')}
+                className={`rounded-full px-5 py-2 text-sm font-bold transition-all ${
+                  activeTab === 'plan'
+                    ? 'bg-white text-zinc-900 shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-900'
                 }`}
-            >
-              Classroom Progression
-            </button>
-          )}
+              >
+                Daily Teaching Plan
+              </button>
+            )}
+
+            {confirmed && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('progression')}
+                className={`rounded-full px-5 py-2 text-sm font-bold transition-all ${
+                  activeTab === 'progression'
+                    ? 'bg-white text-zinc-900 shadow-sm'
+                    : 'text-zinc-500 hover:text-zinc-900'
+                }`}
+              >
+                Classroom Progression
+              </button>
+            )}
+          </div>
         </div>
 
         {activeTab === 'curriculum' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {levels.map((level, i) => (
               <LevelCard
                 key={level.order || i}
@@ -774,7 +779,7 @@ export default function CourseReview({ course }) {
         )}
 
         {activeTab === 'plan' && teachingPlan.length > 0 && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {teachingPlan.map((day, i) => (
               <TeachingPlanDay key={i} day={day} />
             ))}
@@ -786,11 +791,11 @@ export default function CourseReview({ course }) {
         )}
       </div>
 
-      {/* Confirmation */}
-      <div className="flex flex-wrap items-center gap-4 border-t border-white/10 pt-4">
+      {/* ── Confirmation ── */}
+      <div className="flex flex-wrap items-center gap-4 pt-4">
         {confirmed ? (
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1.5 text-sm font-medium text-emerald-400">
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700 shadow-sm">
               <svg
                 className="h-4 w-4"
                 fill="none"
@@ -800,73 +805,32 @@ export default function CourseReview({ course }) {
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeWidth={2}
+                  strokeWidth={2.5}
                   d="M5 13l4 4L19 7"
                 />
               </svg>
-              Structure Confirmed
-            </span>
-
-            <span className="text-xs text-gray-500">
-              Course structure is ready for student progression.
+              Course Structure Confirmed
             </span>
           </div>
         ) : (
-          <>
+          <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-6 w-full flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+            <div>
+              <p className="text-base font-bold text-zinc-900">
+                Ready to confirm course structure?
+              </p>
+              <p className="mt-1 text-sm text-zinc-500 max-w-xl leading-relaxed">
+                Once confirmed, the structure is locked and classroom progression begins. You can still map videos and track concepts afterward.
+              </p>
+            </div>
             <button
-              id="confirm-structure-btn"
               type="button"
               onClick={handleConfirm}
-              disabled={
-                confirming ||
-                regenerating ||
-                mutating ||
-                mappingVideo
-              }
-              aria-busy={confirming}
-              className="
-                flex items-center justify-center gap-2
-                rounded-lg bg-emerald-600 px-6 py-2.5
-                text-sm font-medium text-white
-                transition-all duration-150
-                hover:bg-emerald-500
-                active:scale-[0.98]
-                disabled:cursor-not-allowed
-                disabled:opacity-60
-                disabled:active:scale-100
-              "
+              disabled={confirming}
+              className="btn-press-emerald whitespace-nowrap rounded-xl px-8 py-4 text-sm font-bold text-white disabled:opacity-50 w-full md:w-auto text-center"
             >
-              {confirming
-                ? 'Confirming...'
-                : '✓ Confirm Structure & Plan'}
+              {confirming ? 'Confirming...' : 'Confirm Structure'}
             </button>
-
-            <button
-              type="button"
-              onClick={handleRegenerate}
-              disabled={
-                regenerating ||
-                confirming ||
-                mutating ||
-                mappingVideo
-              }
-              className="
-                flex items-center justify-center gap-2
-                rounded-lg border border-white/20 bg-white/10 px-6 py-2.5
-                text-sm font-medium text-white
-                transition-all duration-150
-                hover:bg-white/20
-                active:scale-[0.98]
-                disabled:cursor-not-allowed
-                disabled:opacity-60
-                disabled:active:scale-100
-              "
-            >
-              {regenerating
-                ? 'Regenerating...'
-                : '↻ Regenerate Roadmap'}
-            </button>
-          </>
+          </div>
         )}
       </div>
     </div>

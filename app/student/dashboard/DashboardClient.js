@@ -1,8 +1,44 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import RoadmapLevel from './RoadmapLevel';
+
+/* ── SVG Spine ─────────────────────────────────────────────────────────────
+   Measures actual circle DOM positions after paint, generates a smooth
+   cubic-bezier S-path through them. Re-runs on resize.
+──────────────────────────────────────────────────────────────────────────── */
+function SerpentineSpine({ pathData, width, height }) {
+  if (!pathData) return null;
+  return (
+    <svg
+      className="absolute inset-0 pointer-events-none"
+      width={width}
+      height={height}
+      aria-hidden="true"
+      style={{ overflow: 'visible' }}
+    >
+      {/* Thick grey track */}
+      <path
+        d={pathData}
+        stroke="#e2e8f0"
+        strokeWidth="16"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+      {/* Lighter inner track for depth */}
+      <path
+        d={pathData}
+        stroke="#f1f5f9"
+        strokeWidth="8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  );
+}
 
 export default function DashboardClient({ studentName }) {
   const router = useRouter();
@@ -10,6 +46,12 @@ export default function DashboardClient({ studentName }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  /* Spine state */
+  const roadmapRef = useRef(null);
+  const [spinePath, setSpinePath] = useState(null);
+  const [spineSize, setSpineSize] = useState({ w: 0, h: 0 });
+
+  /* ── Fetch course ── */
   useEffect(() => {
     const controller = new AbortController();
     const { signal } = controller;
@@ -17,27 +59,24 @@ export default function DashboardClient({ studentName }) {
     async function fetchCourse() {
       try {
         const res = await fetch('/api/student/course', { signal });
-        
+
         if (res.status === 401 || res.status === 403) {
           router.push('/student/login');
           return;
         }
-        
+
         if (res.status === 404) {
           setError('Course not found or not ready.');
           setLoading(false);
           return;
         }
 
-        if (!res.ok) {
-          throw new Error('Failed to load course data.');
-        }
+        if (!res.ok) throw new Error('Failed to load course data.');
 
         const data = await res.json();
         setCourseData(data);
       } catch (err) {
         if (err.name === 'AbortError') return;
-        console.error('Failed to fetch student course:', err);
         setError('Network error. Please try again.');
       } finally {
         setLoading(false);
@@ -45,35 +84,83 @@ export default function DashboardClient({ studentName }) {
     }
 
     fetchCourse();
-
     return () => controller.abort();
   }, [router]);
+
+  /* ── Compute serpentine SVG path from actual circle positions ── */
+  const computeSpine = useCallback(() => {
+    const container = roadmapRef.current;
+    if (!container) return;
+
+    const circles = container.querySelectorAll('[data-node-circle]');
+    if (circles.length < 2) return;
+
+    const containerRect = container.getBoundingClientRect();
+
+    const pts = Array.from(circles).map((circle) => {
+      const r = circle.getBoundingClientRect();
+      return {
+        x: r.left + r.width / 2 - containerRect.left,
+        y: r.top + r.height / 2 - containerRect.top,
+      };
+    });
+
+    /* Build smooth cubic-bezier path through every point.
+       Control points sit at the horizontal midpoint between adjacent nodes,
+       creating the characteristic Duolingo S-curve. */
+    let d = `M${pts[0].x},${pts[0].y}`;
+    for (let i = 1; i < pts.length; i++) {
+      const p = pts[i - 1];
+      const c = pts[i];
+      const midY = (p.y + c.y) / 2;
+      // CP1: straight down from previous node; CP2: straight up to current node
+      d += ` C${p.x},${midY} ${c.x},${midY} ${c.x},${c.y}`;
+    }
+
+    setSpinePath(d);
+    setSpineSize({ w: containerRect.width, h: containerRect.height });
+  }, []);
+
+  /* Run after levels paint, and on every resize */
+  useEffect(() => {
+    if (!courseData?.levels?.length) return;
+
+    /* rAF ensures the browser has committed layout before measuring */
+    const raf = requestAnimationFrame(() => {
+      computeSpine();
+    });
+
+    window.addEventListener('resize', computeSpine);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', computeSpine);
+    };
+  }, [courseData, computeSpine]);
 
   async function handleLogout() {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
       router.push('/student/login');
       router.refresh();
-    } catch (err) {
-      console.error('Logout failed:', err);
+    } catch {
+      /* ignore */
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      {/* Header */}
-      <header className="sticky top-0 z-10 border-b border-white/10 bg-gray-950/80 backdrop-blur-md">
+    <div className="min-h-screen text-stone-900" style={{ background: '#F2EDE6' }}>
+      {/* ── Header ── */}
+      <header className="sticky top-0 z-50 bg-white border-b border-black/[0.06] shadow-[0_1px_8px_rgba(0,0,0,0.06)]">
         <div className="mx-auto max-w-5xl px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xl font-bold tracking-tight">
-              Lacer <span className="text-indigo-400">AI</span>
-            </span>
-          </div>
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-gray-300 font-medium">{studentName}</span>
+          <span className="text-xl font-black tracking-tighter text-stone-900">
+            Lacer<span className="text-indigo-500 ml-px">AI</span>
+          </span>
+
+          <div className="flex items-center gap-4 bg-white border border-black/[0.06] shadow-sm rounded-full py-1.5 px-2 pl-4">
+            <span className="hidden text-sm font-bold text-stone-600 sm:block">{studentName}</span>
             <button
               onClick={handleLogout}
-              className="text-gray-400 hover:text-white transition-colors"
+              className="rounded-full bg-stone-100 px-4 py-1.5 text-xs font-bold text-stone-600 transition-colors hover:bg-stone-200 hover:text-stone-900"
             >
               Log out
             </button>
@@ -81,56 +168,70 @@ export default function DashboardClient({ studentName }) {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="mx-auto max-w-3xl px-4 py-12">
+      {/* ── Main ── */}
+      <main className="mx-auto max-w-2xl px-4 py-12 pb-32">
         {loading ? (
-          <div className="animate-pulse space-y-8">
-            <div className="h-32 bg-white/5 rounded-2xl border border-white/10"></div>
-            <div className="space-y-4">
-              <div className="h-40 bg-white/5 rounded-2xl border border-white/10"></div>
-              <div className="h-40 bg-white/5 rounded-2xl border border-white/10"></div>
+          <div className="animate-pulse space-y-8 flex flex-col items-center pt-8">
+            <div className="h-28 w-full max-w-sm bg-zinc-200 rounded-[2rem]" />
+            <div className="flex flex-col items-center gap-10 w-full">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-24 w-24 bg-zinc-200 rounded-full" />
+              ))}
             </div>
           </div>
         ) : error ? (
-          <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-8 text-center">
-            <p className="text-red-400 font-medium">{error}</p>
+          <div className="rounded-[2rem] border border-rose-200 bg-rose-50 p-8 text-center shadow-sm max-w-md mx-auto stagger-item">
+            <p className="text-rose-600 font-bold">{error}</p>
             <button
               onClick={() => window.location.reload()}
-              className="mt-4 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm text-white transition-colors border border-white/10"
+              className="mt-6 btn-press-ghost rounded-xl px-6 py-2.5 text-sm font-bold"
             >
               Retry
             </button>
           </div>
         ) : !courseData?.course ? (
-          <div className="rounded-2xl border border-white/10 bg-white/5 p-12 text-center">
-            <h2 className="text-xl font-semibold mb-2">No Course Available</h2>
-            <p className="text-gray-400 text-sm">Your teacher has not published the learning roadmap yet.</p>
+          <div className="rounded-[2.5rem] border border-black/[0.04] bg-white p-12 text-center shadow-sm max-w-md mx-auto stagger-item">
+            <h2 className="text-2xl font-bold tracking-tight text-zinc-900 mb-3">No Course Yet</h2>
+            <p className="text-zinc-500 text-sm font-medium">
+              Your teacher hasn&apos;t published the learning roadmap yet. Check back soon!
+            </p>
           </div>
         ) : (
-          <div className="space-y-12">
-            {/* Hero */}
-            <section className="text-center md:text-left">
-              <h1 className="text-4xl font-bold tracking-tight mb-4">
+          <div className="space-y-10">
+            {/* ── Hero ── */}
+            <section className="text-center stagger-item" style={{ animationDelay: '0ms' }}>
+              <div className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-indigo-600 mb-4">
+                Your Learning Path
+              </div>
+              <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-zinc-900 mb-3 leading-none">
                 {courseData.course.title}
               </h1>
-              <p className="text-lg text-gray-400 max-w-2xl">
-                {courseData.course.description || 'AI-powered structured learning roadmap'}
+              <p className="text-base text-zinc-500 max-w-lg mx-auto font-medium">
+                {courseData.course.description || 'Follow the path to master Data Structures & Algorithms.'}
               </p>
-              <div className="mt-6 inline-flex items-center rounded-full border border-indigo-500/30 bg-indigo-500/10 px-3 py-1 text-xs font-medium text-indigo-400">
-                Your learning roadmap
-              </div>
             </section>
 
-            {/* Roadmap */}
-            <section className="space-y-6">
-              <h2 className="text-xl font-semibold mb-6 flex items-center gap-3">
-                <div className="w-1.5 h-6 bg-indigo-500 rounded-full"></div>
-                Curriculum
-              </h2>
-              
-              <div className="relative space-y-4 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-white/10 before:to-transparent">
-                {courseData.levels.map((level) => (
-                  <RoadmapLevel key={level.levelOrder} level={level} />
+            {/* ── Serpentine Roadmap ── */}
+            <section
+              ref={roadmapRef}
+              className="relative pb-16 pt-4"
+              style={{ minHeight: `${courseData.levels.length * 220}px` }}
+            >
+              {/* SVG spine drawn through actual node positions */}
+              <SerpentineSpine
+                pathData={spinePath}
+                width={spineSize.w}
+                height={spineSize.h}
+              />
+
+              {/* Level nodes — spine reads their data-node-circle positions */}
+              <div className="flex flex-col items-center gap-0">
+                {courseData.levels.map((level, idx) => (
+                  <RoadmapLevel
+                    key={level.levelOrder}
+                    level={level}
+                    index={idx}
+                  />
                 ))}
               </div>
             </section>

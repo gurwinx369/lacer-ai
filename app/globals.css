@@ -1,8 +1,19 @@
 @import "tailwindcss";
 
+/* ── Color tokens ──────────────────────────────────────────────────────── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* 70/30/10 rule
+     70% — warm cream base      (page backgrounds, outer sections)
+     30% — pure white           (cards, panels, header)
+     10% — indigo accent        (CTAs, badges, structural color)
+  */
+  --background:    #F2EDE6;   /* warm off-white — NOT cold slate */
+  --surface-card:  #FFFFFF;
+  --surface-muted: #EDE8E1;   /* slightly deeper cream for inset areas */
+  --foreground:    #1C1917;   /* stone-900 — warm near-black */
+  --text-muted:    #78716C;   /* stone-500 */
+  --text-faint:    #A8A29E;   /* stone-400 */
+  --border:        rgba(0,0,0,0.07);
 }
 
 @theme inline {
@@ -12,15 +23,266 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+/* ── Motion tokens ─────────────────────────────────────────────────────── */
+:root {
+  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  --dur-instant:  80ms;
+  --dur-fast:     150ms;
+  --dur-normal:   250ms;
+  --dur-slow:     350ms;
+}
+
+/* ── Duolingo-style 3D press buttons (Light Theme) ───────────────────────── */
+/*
+   Anatomy: button sits 4px above its shadow. On :active the button
+   translateY(4px) so it lands flush on the shadow — real press feel.
+   Compositor-only (transform + box-shadow): runs at 60fps on MINIMAL too.
+*/
+.btn-press-emerald {
+  --btn-bg:     #10b981;
+  --btn-shadow: #047857;
+  background-color: var(--btn-bg);
+  box-shadow: 0 4px 0 var(--btn-shadow);
+  transform: translateY(0px);
+  transition:
+    transform var(--dur-instant) var(--ease-out-expo),
+    box-shadow var(--dur-instant) var(--ease-out-expo),
+    background-color var(--dur-fast) ease;
+}
+.btn-press-emerald:hover  { --btn-bg: #34d399; }
+.btn-press-emerald:active {
+  transform: translateY(4px);
+  box-shadow: 0 0px 0 var(--btn-shadow);
+}
+
+.btn-press-amber {
+  --btn-bg:     #f59e0b;
+  --btn-shadow: #b45309;
+  background-color: var(--btn-bg);
+  box-shadow: 0 4px 0 var(--btn-shadow);
+  transform: translateY(0px);
+  transition:
+    transform var(--dur-instant) var(--ease-out-expo),
+    box-shadow var(--dur-instant) var(--ease-out-expo),
+    background-color var(--dur-fast) ease;
+}
+.btn-press-amber:hover  { --btn-bg: #fbbf24; }
+.btn-press-amber:active {
+  transform: translateY(4px);
+  box-shadow: 0 0px 0 var(--btn-shadow);
+}
+
+.btn-press-ghost {
+  --btn-bg:     #ffffff;
+  --btn-shadow: #d4d4d8;
+  background-color: var(--btn-bg);
+  box-shadow: 0 4px 0 var(--btn-shadow);
+  border: 1px solid #e4e4e7;
+  color: #18181b;
+  transform: translateY(0px);
+  transition:
+    transform var(--dur-instant) var(--ease-out-expo),
+    box-shadow var(--dur-instant) var(--ease-out-expo),
+    background-color var(--dur-fast) ease,
+    border-color var(--dur-fast) ease;
+}
+.btn-press-ghost:hover  { 
+  --btn-bg: #f4f4f5; 
+  border-color: #d4d4d8;
+}
+.btn-press-ghost:active {
+  transform: translateY(4px);
+  box-shadow: 0 0px 0 var(--btn-shadow);
+}
+
+.btn-press-indigo {
+  --btn-bg:     #6366f1;
+  --btn-shadow: #4338ca;
+  background-color: var(--btn-bg);
+  box-shadow: 0 4px 0 var(--btn-shadow);
+  transform: translateY(0px);
+  transition:
+    transform var(--dur-instant) var(--ease-out-expo),
+    box-shadow var(--dur-instant) var(--ease-out-expo),
+    background-color var(--dur-fast) ease;
+}
+.btn-press-indigo:hover  { --btn-bg: #818cf8; }
+.btn-press-indigo:active {
+  transform: translateY(4px);
+  box-shadow: 0 0px 0 var(--btn-shadow);
+}
+
+.btn-press-rose {
+  --btn-bg:     #f43f5e;
+  --btn-shadow: #be123c;
+  background-color: var(--btn-bg);
+  box-shadow: 0 4px 0 var(--btn-shadow);
+  transform: translateY(0px);
+  transition:
+    transform var(--dur-instant) var(--ease-out-expo),
+    box-shadow var(--dur-instant) var(--ease-out-expo),
+    background-color var(--dur-fast) ease;
+}
+.btn-press-rose:hover  { --btn-bg: #fb7185; }
+.btn-press-rose:active {
+  transform: translateY(4px);
+  box-shadow: 0 0px 0 var(--btn-shadow);
+}
+
+/* ── Concept chip (Futuristic Off-White Premium Theme) ─────────────────────────── */
+.chip-press {
+  --chip-bg:     #f8fafc; /* Very subtle, cool futuristic off-white (Slate 50) */
+  --chip-border: rgba(148, 163, 184, 0.2); /* Subtle slate border */
+  --chip-shadow: rgba(148, 163, 184, 0.25); /* Tinted shadow to match */
+  background-color: var(--chip-bg);
+  border: 1px solid var(--chip-border); /* Slightly thinner border for premium feel */
+  box-shadow: 
+    0 3px 0 var(--chip-shadow),
+    0 4px 6px -1px rgba(0, 0, 0, 0.02), /* Subtle diffusion shadow */
+    0 2px 4px -1px rgba(0, 0, 0, 0.02);
+  color: #334155; /* Slate 700 for text, slightly cooler than standard gray */
+  border-radius: 9999px; /* Pill shape for futuristic look */
+  padding-left: 12px;
+  padding-right: 12px;
+  transform: translateY(0px);
+  transition:
+    transform var(--dur-instant) var(--ease-out-expo),
+    box-shadow var(--dur-instant) var(--ease-out-expo),
+    background-color var(--dur-fast) ease;
+}
+.chip-press:hover  { 
+  --chip-bg: #f1f5f9; /* Slate 100 on hover */
+  --chip-shadow: rgba(148, 163, 184, 0.35); /* Slightly darker shadow */
+}
+.chip-press:active {
+  transform: translateY(3px);
+  box-shadow: 
+    0 0px 0 var(--chip-shadow),
+    0 1px 2px -1px rgba(0, 0, 0, 0.02); /* Compressed diffusion shadow */
+}
+
+/* ── Shimmer skeleton animation (Light Theme) ────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position:  200% center; }
+}
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(0,0,0,0.04) 25%,
+    rgba(0,0,0,0.08) 50%,
+    rgba(0,0,0,0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* ── Stagger-in reveal ─────────────────────────────────────────────────── */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.stagger-item {
+  opacity: 0;
+  animation: fadeSlideUp var(--dur-slow) var(--ease-out-expo) forwards;
+}
+
+/* ── Accordion height transition (expandable description) ──────────────── */
+.accordion-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--dur-normal) var(--ease-out-expo);
+}
+.accordion-content.open {
+  grid-template-rows: 1fr;
+}
+.accordion-inner {
+  overflow: hidden;
+}
+
+/* ── Reduced-motion: collapse everything to instant ───────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .btn-press-emerald,
+  .btn-press-amber,
+  .btn-press-ghost,
+  .btn-press-indigo,
+  .btn-press-rose,
+  .chip-press {
+    transition: none;
+  }
+  .shimmer {
+    animation: none;
+    background: rgba(0,0,0,0.06);
+  }
+  .stagger-item {
+    animation: none;
+    opacity: 1;
+  }
+  .accordion-content {
+    transition: none;
+  }
+  .auth-float {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── Auth page float-in ─────────────────────────────────────────────────── */
+@keyframes authFloat {
+  from { opacity: 0; transform: translateY(20px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+.auth-float {
+  opacity: 0;
+  animation: authFloat 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* ── Mesh gradient blob animation ───────────────────────────────────────── */
+@keyframes blobDrift {
+  0%, 100% { transform: translate(0%, 0%)    scale(1);    }
+  33%       { transform: translate(3%, -4%)  scale(1.04); }
+  66%       { transform: translate(-3%, 3%)  scale(0.97); }
+}
+.blob-drift {
+  animation: blobDrift 12s ease-in-out infinite;
+}
+.blob-drift-alt {
+  animation: blobDrift 16s ease-in-out infinite reverse;
+}
+
+/* ── Input focus ring upgrade ────────────────────────────────────────────── */
+.input-premium {
+  border: 1.5px solid #e4e4e7;
+  background: #fafafa;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 0.9375rem;
+  color: #18181b;
+  width: 100%;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    box-shadow 150ms ease;
+  outline: none;
+}
+.input-premium::placeholder { color: #a1a1aa; }
+.input-premium:focus {
+  border-color: #6366f1;
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.08);
+}
+.input-premium:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

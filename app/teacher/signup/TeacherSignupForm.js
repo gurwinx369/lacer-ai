@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-export default function TeacherLoginForm() {
+export default function TeacherSignupForm() {
   const router = useRouter();
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -16,19 +17,21 @@ export default function TeacherLoginForm() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/auth/teacher/login', {
+      const res = await fetch('/api/auth/teacher/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ name, email, password }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data.error || 'Login failed. Please verify your credentials.');
+        setError(data.error || 'Signup failed. Please check your details.');
         return;
       }
 
+      // Route to login or directly to dashboard if signup auto-logs in.
+      // Assuming auto-login:
       router.push('/teacher/dashboard');
       router.refresh();
     } catch {
@@ -56,6 +59,30 @@ export default function TeacherLoginForm() {
       )}
 
       <div className="space-y-4">
+        {/* Name */}
+        <div>
+          <label htmlFor="teacher-name" className="block text-sm font-bold text-zinc-900 mb-1.5">
+            Full name
+          </label>
+          <input
+            id="teacher-name"
+            type="text"
+            autoComplete="name"
+            required
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            disabled={loading}
+            placeholder="Jane Doe"
+            className="
+              w-full rounded-xl border border-zinc-300 bg-white px-4 py-3
+              text-base font-semibold text-zinc-900 shadow-inner placeholder:text-zinc-400 placeholder:font-medium
+              focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500
+              disabled:opacity-50 disabled:bg-zinc-50 disabled:cursor-not-allowed
+              transition-all duration-200
+            "
+          />
+        </div>
+
         {/* Email */}
         <div>
           <label htmlFor="teacher-email" className="block text-sm font-bold text-zinc-900 mb-1.5">
@@ -82,18 +109,13 @@ export default function TeacherLoginForm() {
 
         {/* Password */}
         <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label htmlFor="teacher-password" className="block text-sm font-bold text-zinc-900">
-              Password
-            </label>
-            <a href="#" className="text-sm font-bold text-emerald-600 hover:text-emerald-700 transition-colors">
-              Forgot password?
-            </a>
-          </div>
+          <label htmlFor="teacher-password" className="block text-sm font-bold text-zinc-900 mb-1.5">
+            Password
+          </label>
           <input
             id="teacher-password"
             type="password"
-            autoComplete="current-password"
+            autoComplete="new-password"
             required
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -112,9 +134,9 @@ export default function TeacherLoginForm() {
 
       {/* Submit */}
       <button
-        id="teacher-login-submit"
+        id="teacher-signup-submit"
         type="submit"
-        disabled={loading}
+        disabled={loading || !name || !email || !password}
         aria-busy={loading}
         className="
           btn-press-emerald mt-6 w-full
@@ -133,10 +155,10 @@ export default function TeacherLoginForm() {
               <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="3" className="opacity-25" />
               <path d="M21 12a9 9 0 00-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
             </svg>
-            Signing in...
+            Creating account...
           </span>
         ) : (
-          'Sign in to your account'
+          'Create teacher account'
         )}
       </button>
     </form>

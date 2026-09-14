@@ -60,18 +60,6 @@ function parseTimeToSeconds(timeStr) {
   return NaN;
 }
 
-/**
- * ConceptVideoSegment
- *
- * AI-generated mapping is the primary path.
- * Manual timestamps are available as a correction/fallback.
- *
- * Props:
- *   courseConfirmed: whether the course has been confirmed
- *   levelOrder: canonical level order
- *   conceptOrder: canonical concept order
- *   initialChunk: { startSeconds, endSeconds } | null
- */
 export default function ConceptVideoSegment({
   courseConfirmed,
   levelOrder,
@@ -203,16 +191,14 @@ export default function ConceptVideoSegment({
 
   /*
    * AI mapping exists.
-   *
-   * This is the normal state after automatic video mapping.
    */
   if (savedChunk && !editing) {
     return (
-      <div className="mt-3 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 border border-emerald-100">
             <svg
-              className="h-3.5 w-3.5 text-emerald-400"
+              className="h-4 w-4 text-emerald-600"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -233,11 +219,11 @@ export default function ConceptVideoSegment({
           </div>
 
           <div className="flex flex-col">
-            <span className="text-xs font-medium text-emerald-400">
+            <span className="text-xs font-bold text-emerald-700">
               Video mapped
             </span>
 
-            <span className="text-[11px] text-gray-500">
+            <span className="text-[11px] font-medium text-zinc-500">
               {formatSecondsToTime(savedChunk.startSeconds)}
               {' – '}
               {formatSecondsToTime(savedChunk.endSeconds)}
@@ -248,7 +234,7 @@ export default function ConceptVideoSegment({
         <button
           type="button"
           onClick={handleOpenEdit}
-          className="text-xs font-medium text-gray-500 transition-colors hover:text-indigo-400"
+          className="text-xs font-bold text-zinc-400 transition-colors hover:text-emerald-600 ml-1"
         >
           Correct timestamps
         </button>
@@ -258,16 +244,13 @@ export default function ConceptVideoSegment({
 
   /*
    * No mapping exists.
-   *
-   * Manual entry remains available as a fallback.
    */
   if (!savedChunk && !editing) {
     return (
-      <div className="mt-3 flex flex-wrap items-center gap-3">
+      <div className="mt-4 flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-
-          <span className="text-xs italic text-gray-500">
+          <span className="h-2 w-2 rounded-full bg-amber-400" />
+          <span className="text-xs font-medium text-zinc-500">
             No video mapping found
           </span>
         </div>
@@ -275,7 +258,7 @@ export default function ConceptVideoSegment({
         <button
           type="button"
           onClick={handleOpenAdd}
-          className="text-xs font-medium text-gray-500 transition-colors hover:text-indigo-400"
+          className="text-xs font-bold text-zinc-400 transition-colors hover:text-emerald-600"
         >
           Add manually
         </button>
@@ -287,24 +270,24 @@ export default function ConceptVideoSegment({
    * Manual correction / fallback form.
    */
   return (
-    <div className="mt-3 rounded-lg border border-white/5 bg-black/20 p-3">
-      <div className="mb-3">
-        <p className="text-xs font-medium text-gray-300">
+    <div className="mt-4 rounded-2xl border border-zinc-200 bg-zinc-50 p-5 shadow-sm">
+      <div className="mb-4">
+        <p className="text-sm font-bold text-zinc-900">
           {savedChunk
             ? 'Correct Video Mapping'
             : 'Add Video Mapping'}
         </p>
 
-        <p className="mt-0.5 text-[11px] text-gray-600">
+        <p className="mt-0.5 text-xs text-zinc-500">
           Enter the section containing this concept.
         </p>
       </div>
 
       <div className="flex flex-wrap items-end gap-3">
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <label
             htmlFor={`video-start-${levelOrder}-${conceptOrder}`}
-            className="text-[11px] font-medium text-gray-500"
+            className="text-[11px] font-bold uppercase tracking-widest text-zinc-500"
           >
             Start
           </label>
@@ -318,14 +301,14 @@ export default function ConceptVideoSegment({
             onChange={(event) =>
               setStartStr(event.target.value)
             }
-            className="w-20 rounded border border-white/10 bg-gray-900 px-2 py-1.5 text-xs text-white placeholder-gray-600 focus:border-indigo-500 focus:outline-none"
+            className="w-24 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 placeholder-zinc-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
           />
         </div>
 
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <label
             htmlFor={`video-end-${levelOrder}-${conceptOrder}`}
-            className="text-[11px] font-medium text-gray-500"
+            className="text-[11px] font-bold uppercase tracking-widest text-zinc-500"
           >
             End
           </label>
@@ -339,7 +322,7 @@ export default function ConceptVideoSegment({
             onChange={(event) =>
               setEndStr(event.target.value)
             }
-            className="w-20 rounded border border-white/10 bg-gray-900 px-2 py-1.5 text-xs text-white placeholder-gray-600 focus:border-indigo-500 focus:outline-none"
+            className="w-24 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm font-semibold text-zinc-900 placeholder-zinc-400 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
           />
         </div>
 
@@ -347,7 +330,7 @@ export default function ConceptVideoSegment({
           type="button"
           onClick={handleSave}
           disabled={status === 'saving'}
-          className="rounded bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-press-emerald ml-1 rounded-xl px-5 py-2 text-xs font-bold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
           {status === 'saving' ? 'Saving...' : 'Save'}
         </button>
@@ -356,14 +339,14 @@ export default function ConceptVideoSegment({
           type="button"
           onClick={handleCancel}
           disabled={status === 'saving'}
-          className="rounded bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-400 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+          className="btn-press-ghost rounded-xl px-5 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50"
         >
           Cancel
         </button>
       </div>
 
       {status === 'error' && (
-        <p className="mt-2 text-xs text-red-400">
+        <p className="mt-3 text-xs font-semibold text-rose-500">
           {errorMsg}
         </p>
       )}

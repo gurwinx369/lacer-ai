@@ -31,33 +31,43 @@ export default async function CourseReviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <header className="border-b border-white/10 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <span className="text-base font-bold tracking-tight">
-            Lacer <span className="text-indigo-400">AI</span>
-          </span>
-          <a
-            href="/teacher/dashboard"
-            className="text-sm text-gray-400 hover:text-white transition-colors duration-150"
-          >
-            ← Dashboard
-          </a>
-        </div>
+    <div className="min-h-screen bg-zinc-50 text-zinc-900">
+      {/* ── Airy, Borderless Header ── */}
+      <header className="pt-6 pb-2 px-4 sm:px-8 max-w-[1400px] mx-auto flex items-center justify-between">
+        {/* Brand */}
+        <span className="text-xl font-bold tracking-tighter text-zinc-900">
+          Lacer
+          <span className="text-emerald-500 ml-1">AI</span>
+        </span>
+
+        {/* Back to Dashboard */}
+        <a
+          href="/teacher/dashboard"
+          className="flex items-center gap-2 rounded-full bg-white border border-black/[0.04] shadow-sm px-4 py-1.5 text-xs font-bold text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900"
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+            <path d="M11 6H1M6 11L1 6L6 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Dashboard
+        </a>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        <div className="mb-8 flex items-start justify-between gap-4">
+      <main className="max-w-[1400px] mx-auto px-4 sm:px-8 py-12 pb-24">
+        <div className="mb-10 max-w-3xl flex items-start justify-between gap-6">
           <div>
-            <h1 className="text-2xl font-bold text-white">Review Generated Structure</h1>
-            <p className="mt-1 text-sm text-gray-400">
-              Gemini has analyzed your syllabus and generated the course structure below.
-              Review it carefully, then confirm to make it available for student progression.
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tighter text-zinc-900 leading-none">
+              Review Structure
+            </h1>
+            <p className="mt-4 text-base text-zinc-500 leading-relaxed">
+              Lacer AI has analyzed your syllabus and generated the course roadmap. Review it carefully, confirm the structure, and map any relevant video segments.
             </p>
           </div>
           {course.confirmedAt && (
-            <span className="shrink-0 inline-flex items-center rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-400">
-              ✓ Confirmed
+            <span className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-bold text-emerald-700 shadow-sm">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+              </svg>
+              Confirmed
             </span>
           )}
         </div>

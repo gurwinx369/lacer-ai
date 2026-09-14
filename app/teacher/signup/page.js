@@ -1,14 +1,14 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
-import TeacherLoginForm from './TeacherLoginForm';
+import TeacherSignupForm from './TeacherSignupForm';
 import Link from 'next/link';
 
 export const metadata = {
-  title: 'Teacher Login — Lacer AI',
-  description: 'Sign in to your Lacer AI teacher account',
+  title: 'Teacher Signup — Lacer AI',
+  description: 'Create your Lacer AI teacher account',
 };
 
-export default async function TeacherLoginPage() {
+export default async function TeacherSignupPage() {
   const session = await getSession();
   if (session?.role === 'teacher') {
     redirect('/teacher/dashboard');
@@ -19,7 +19,7 @@ export default async function TeacherLoginPage() {
       
       {/* ── Left Pane: Brand & Value Prop (Hidden on mobile) ── */}
       <div className="hidden lg:flex w-1/2 bg-zinc-950 p-12 flex-col justify-between relative overflow-hidden">
-        {/* Subtle Background Pattern (Premium SaaS feel) */}
+        {/* Subtle Background Pattern */}
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
         
         {/* Decorative Glow */}
@@ -35,10 +35,10 @@ export default async function TeacherLoginPage() {
 
         <div className="relative z-10 max-w-lg">
           <h2 className="text-4xl font-bold tracking-tighter text-white mb-6 leading-[1.1]">
-            From Marks to <span className="text-emerald-400">Mastery.</span>
+            Unlock precision learning.
           </h2>
           <p className="text-lg text-zinc-400 leading-relaxed font-medium">
-            Stop relying on generic scores. Identify precise learning gaps, recommend targeted interventions, and track concept-level mastery for every student in your classroom.
+            Join thousands of educators who have moved beyond traditional testing. Build automated, mastery-based workflows in minutes.
           </p>
           
 
@@ -57,18 +57,18 @@ export default async function TeacherLoginPage() {
           </div>
 
           <div className="mb-8">
-            <h1 className="text-3xl font-bold tracking-tighter text-zinc-900 mb-2">Welcome back</h1>
+            <h1 className="text-3xl font-bold tracking-tighter text-zinc-900 mb-2">Create an account</h1>
             <p className="text-base text-zinc-500 font-medium">
-              Sign in to your teacher portal to continue.
+              Start transforming your classroom today.
             </p>
           </div>
 
-          <TeacherLoginForm />
+          <TeacherSignupForm />
 
           <p className="mt-8 text-center text-sm font-medium text-zinc-500">
-            Don't have an account?{' '}
-            <Link href="/teacher/signup" className="text-emerald-600 hover:text-emerald-700 hover:underline underline-offset-4 transition-all font-bold">
-              Create an account
+            Already have an account?{' '}
+            <Link href="/teacher/login" className="text-emerald-600 hover:text-emerald-700 hover:underline underline-offset-4 transition-all font-bold">
+              Sign in
             </Link>
           </p>
         </div>
