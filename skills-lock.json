@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "backend-patterns": {
+      "source": "affaan-m/ECC",
+      "sourceType": "github",
+      "skillPath": "skills/backend-patterns/SKILL.md",
+      "computedHash": "45bf0c6abd0549b56142690f49437bc59c7b4f55b62dc7717ef295ec6ed6617f"
+    },
+    "explanatory-playground": {
+      "source": "petekp/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/explanatory-playground/SKILL.md",
+      "computedHash": "eabf0b6c48457c8658062d8387e66a8c0b65056fe5a1c138ad6de4709972a745"
+    },
+    "micro-interactions": {
+      "source": "solinkz/micro-interactions-skill",
+      "sourceType": "github",
+      "skillPath": "skills/micro-interactions/SKILL.md",
+      "computedHash": "0e7a87532cd1f287d2d8d3f92a8fa0803e6af637b64ae68f0f7a3b9cc6cde37c"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "computedHash": "6b526d013e28073246a36f99b529bc43745d30832ecfa8217b359c34f260ca6b"
+    }
+  }
+}
