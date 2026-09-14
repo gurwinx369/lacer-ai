@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import { getSession } from '@/lib/auth';
 import { verifyAndGetStudentLevel } from '@/lib/student-course';
-import QuizAttempt from '@/models/QuizAttempt';
+import AssignmentAttempt from '@/models/AssignmentAttempt';
 import { getConceptMastery } from '@/features/concept-mastery/service';
 
 export async function GET(request, { params }) {
@@ -11,7 +11,7 @@ export async function GET(request, { params }) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { levelOrder, quizId } = await params;
+  const { levelOrder } = await params;
   const { searchParams } = new URL(request.url);
   const attemptId = searchParams.get('attemptId');
 
@@ -29,18 +29,14 @@ export async function GET(request, { params }) {
     }
 
     // 2. Fetch the attempt (Server-side derived data)
-    const attempt = await QuizAttempt.findById(attemptId).lean();
+    const attempt = await AssignmentAttempt.findById(attemptId).lean();
 
-    // Generic not-found response to avoid leaking other students' data
     if (!attempt) {
       return NextResponse.json({ error: 'Attempt not found' }, { status: 404 });
     }
 
     // 3. Verify complete relationship chain
     if (attempt.student.toString() !== session.userId) {
-      return NextResponse.json({ error: 'Attempt not found' }, { status: 404 });
-    }
-    if (attempt.quiz.toString() !== quizId) {
       return NextResponse.json({ error: 'Attempt not found' }, { status: 404 });
     }
     if (attempt.course.toString() !== safeCourse.id) {
@@ -71,8 +67,7 @@ export async function GET(request, { params }) {
 
     for (const [conceptName, stats] of Object.entries(conceptMap)) {
       const accuracy = Math.round((stats.correct / stats.total) * 100);
-
-      // Do not fabricate INSUFFICIENT_DATA if missing. Represent missing explicitly as null.
+      
       const masteryEntry = masteryData?.[conceptName];
       const masteryVerdict = masteryEntry ? masteryEntry.verdict : null;
 
@@ -87,7 +82,6 @@ export async function GET(request, { params }) {
         masteryVerdict,
       });
 
-      // Deterministic threshold logic
       if (accuracy >= 80) {
         strengths.push(conceptName);
       } else if (accuracy < 60) {
@@ -95,7 +89,6 @@ export async function GET(request, { params }) {
       }
     }
 
-    // Sort concepts alphabetically for consistent UI
     concepts.sort((a, b) => a.concept.localeCompare(b.concept));
 
     // 6. Determine Primary Intervention
@@ -106,10 +99,10 @@ export async function GET(request, { params }) {
         if (a.accuracy !== b.accuracy) return a.accuracy - b.accuracy;
         return a.conceptOrder - b.conceptOrder;
       });
-
+      
       const primaryIntervention = gaps[0];
       const canonicalConcept = level.concepts.find(c => c.title === primaryIntervention.concept);
-
+      
       if (canonicalConcept?.videoSegment) {
         intervention = {
           available: true,
@@ -144,7 +137,7 @@ export async function GET(request, { params }) {
       { status: 200 }
     );
   } catch (err) {
-    console.error('[quiz/results] Unexpected error:', err.message);
+    console.error('[assignment/results] Unexpected error:', err.message);
     return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });
   }
 }

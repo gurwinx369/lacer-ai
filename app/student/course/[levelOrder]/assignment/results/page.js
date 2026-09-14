@@ -5,11 +5,10 @@ import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import YoutubePlayer from '@/components/YoutubePlayer';
 
-function QuizResultsContent() {
+function AssignmentResultsContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const levelOrder = params.levelOrder;
-  const quizId = params.quizId;
   const attemptId = searchParams.get('attemptId');
 
   const [data, setData] = useState(null);
@@ -19,7 +18,7 @@ function QuizResultsContent() {
   useEffect(() => {
     if (!attemptId) return;
 
-    fetch(`/api/student/course/${levelOrder}/quizzes/${quizId}/results?attemptId=${attemptId}`)
+    fetch(`/api/student/course/${levelOrder}/assignment/results?attemptId=${attemptId}`)
       .then((res) => res.json().then(data => ({ status: res.status, ok: res.ok, data })))
       .then(({ status, ok, data }) => {
         if (!ok) {
@@ -33,7 +32,7 @@ function QuizResultsContent() {
         setError('Network error loading results.');
         setLoading(false);
       });
-  }, [levelOrder, quizId, attemptId]);
+  }, [levelOrder, attemptId]);
 
   if (!attemptId) {
     return (
@@ -83,14 +82,14 @@ function QuizResultsContent() {
   return (
     <div className="min-h-screen bg-gray-950 text-white pb-20 p-4">
       <main className="mx-auto max-w-2xl mt-8 sm:mt-12 space-y-8">
-
+        
         {/* OVERALL RESULT */}
         <section className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center shadow-lg">
-          <h1 className="text-2xl font-bold text-gray-100 mb-6">Quiz Completed</h1>
-
+          <h1 className="text-2xl font-bold text-gray-100 mb-6">Assignment Completed</h1>
+          
           <div className="flex justify-center items-center gap-6 mb-4">
             <div className="text-center">
-              <span className="block text-5xl font-black text-indigo-400">{attempt.score}</span>
+              <span className="block text-5xl font-black text-fuchsia-400">{attempt.score}</span>
               <span className="text-xs text-gray-500 uppercase tracking-wider mt-1 block">Correct</span>
             </div>
             <div className="text-4xl font-light text-white/20">/</div>
@@ -99,8 +98,8 @@ function QuizResultsContent() {
               <span className="text-xs text-gray-500 uppercase tracking-wider mt-1 block">Total</span>
             </div>
           </div>
-
-          <div className="inline-block mt-4 px-4 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-sm font-semibold mb-6">
+          
+          <div className="inline-block mt-4 px-4 py-1 rounded-full bg-fuchsia-500/10 border border-fuchsia-500/20 text-fuchsia-300 text-sm font-semibold mb-6">
             {attempt.percentage}%
           </div>
 
@@ -109,27 +108,27 @@ function QuizResultsContent() {
 
         {/* INTERVENTION */}
         {intervention && (
-          <section className="rounded-2xl border border-indigo-500/30 bg-indigo-500/5 p-6 sm:p-8 shadow-lg">
+          <section className="rounded-2xl border border-fuchsia-500/30 bg-fuchsia-500/5 p-6 sm:p-8 shadow-lg">
             <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
+              <div className="p-2 rounded-lg bg-fuchsia-500/20 text-fuchsia-400">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
               <h2 className="text-xl font-bold text-white">Learning Gap Detected</h2>
             </div>
-
+            
             <div className="mb-6 ml-11">
               <p className="text-gray-300">You need more practice with: <span className="font-semibold text-white">{intervention.concept}</span></p>
             </div>
 
             {intervention.available ? (
               <div className="space-y-4 ml-11">
-                <p className="text-sm text-indigo-200">Let&apos;s strengthen this concept with a focused explanation.</p>
-                <YoutubePlayer
-                  videoId={intervention.video.videoId}
-                  startSeconds={intervention.video.startSeconds}
-                  endSeconds={intervention.video.endSeconds}
+                <p className="text-sm text-fuchsia-200">Let&apos;s strengthen this concept with a focused explanation.</p>
+                <YoutubePlayer 
+                  videoId={intervention.video.videoId} 
+                  startSeconds={intervention.video.startSeconds} 
+                  endSeconds={intervention.video.endSeconds} 
                 />
                 <p className="text-sm text-gray-400 text-center mt-4">After watching, continue practicing this concept.</p>
               </div>
@@ -144,7 +143,7 @@ function QuizResultsContent() {
         {/* CONCEPT PERFORMANCE */}
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-gray-100 mb-4 px-1">Concept Performance</h2>
-
+          
           <div className="grid gap-3">
             {concepts.map((c) => (
               <div key={c.concept} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors">
@@ -154,7 +153,7 @@ function QuizResultsContent() {
                     {c.correct} / {c.total} correct · {c.accuracy}%
                   </div>
                 </div>
-
+                
                 <div>
                   {c.masteryVerdict ? (
                     <span className={`inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium border ${
@@ -218,7 +217,7 @@ function QuizResultsContent() {
         <div className="pt-4 pb-8">
           <Link
             href={`/student/course/${levelOrder}`}
-            className="flex w-full items-center justify-center py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] transition-all duration-150 font-medium text-white shadow-lg shadow-indigo-500/20"
+            className="flex w-full items-center justify-center py-3.5 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 active:scale-[0.98] transition-all duration-150 font-medium text-white shadow-lg shadow-fuchsia-500/20"
           >
             Back to Level
           </Link>
@@ -229,10 +228,10 @@ function QuizResultsContent() {
   );
 }
 
-export default function QuizResultsPage() {
+export default function AssignmentResultsPage() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-gray-950 flex items-center justify-center text-white">Loading results...</div>}>
-      <QuizResultsContent />
+      <AssignmentResultsContent />
     </Suspense>
   );
 }

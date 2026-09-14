@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 import { connectDB } from '@/lib/db';
-import User from '@/models/User';
 import Course from '@/models/Course';
+import { getTeacherDashboardAnalytics } from '@/lib/teacher-dashboard';
 import DashboardShell from './DashboardShell';
 
 export const metadata = {
@@ -16,20 +16,22 @@ export default async function TeacherDashboardPage() {
   if (!session) redirect('/teacher/login');
   if (session.role !== 'teacher') redirect('/teacher/login');
 
-  let studentCount = 0;
-  let laggingCount = 0;
-  let goodCount = 0;
   let dsaCourse = null;
+  let analytics = null;
 
   try {
     await connectDB();
-    studentCount = await User.countDocuments({ role: 'student' });
-    laggingCount = 0; // Will be real once StudentMastery is implemented.
-    goodCount = 0;
     dsaCourse = await Course.findOne({
       slug: 'dsa',
       createdBy: session.userId,
     }).lean();
+
+    if (dsaCourse) {
+      analytics = await getTeacherDashboardAnalytics({
+        teacherId: session.userId,
+        dsaCourse,
+      });
+    }
   } catch (err) {
     console.error('[teacher/dashboard] Data query failed:', err.message);
   }
@@ -37,8 +39,8 @@ export default async function TeacherDashboardPage() {
   return (
     <DashboardShell
       teacherName={session.email}
-      stats={{ studentCount, laggingCount, goodCount }}
       dsaCourse={dsaCourse ? JSON.parse(JSON.stringify(dsaCourse)) : null}
+      analytics={analytics ? JSON.parse(JSON.stringify(analytics)) : null}
     />
   );
 }

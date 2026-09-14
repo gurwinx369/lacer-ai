@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import AnalyticsSection from './AnalyticsSection';
 
 function StatCard({ label, value, description, accent }) {
   const accentMap = {
@@ -158,7 +159,7 @@ function DSACourseSection({ dsaCourse }) {
   );
 }
 
-export default function DashboardShell({ teacherName, stats, dsaCourse }) {
+export default function DashboardShell({ teacherName, dsaCourse, analytics }) {
   const router = useRouter();
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -202,23 +203,6 @@ export default function DashboardShell({ teacherName, stats, dsaCourse }) {
           <p className="mt-1 text-sm text-gray-400">Monitor your class and manage the DSA course.</p>
         </div>
 
-        {/* Metric cards */}
-        <section aria-label="Class overview">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
-            Class Overview
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <StatCard label="Total Students" value={stats.studentCount} description="Enrolled in DSA course" accent="neutral" />
-            <StatCard label="Lagging Students" value={stats.laggingCount} description="Below mastery threshold" accent="warning" />
-            <StatCard label="Good Standing" value={stats.goodCount} description="On track or above" accent="success" />
-          </div>
-          {stats.studentCount === 0 && (
-            <p className="mt-3 text-xs text-gray-600 italic">
-              Mastery data will appear once students complete assessments.
-            </p>
-          )}
-        </section>
-
         {/* DSA Course */}
         <section aria-label="DSA course">
           <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">
@@ -226,6 +210,9 @@ export default function DashboardShell({ teacherName, stats, dsaCourse }) {
           </h2>
           <DSACourseSection dsaCourse={dsaCourse} />
         </section>
+
+        {/* Analytics Section */}
+        {analytics && <AnalyticsSection analytics={analytics} />}
       </main>
     </div>
   );

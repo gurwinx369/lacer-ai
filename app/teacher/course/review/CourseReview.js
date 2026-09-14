@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import ProgressionTab from './ProgressionTab';
+import ConceptVideoSegment from './ConceptVideoSegment';
 
-function LevelCard({ level, index, courseConfirmed }) {
+function LevelCard({ level, index, courseConfirmed, videoChunks }) {
   const [open, setOpen] = useState(index === 0);
   const [quizStatus, setQuizStatus] = useState(courseConfirmed ? 'loading' : 'idle');
   const [errorMsg, setErrorMsg] = useState('');
@@ -120,6 +121,12 @@ function LevelCard({ level, index, courseConfirmed }) {
                       ))}
                     </ul>
                   )}
+                  <ConceptVideoSegment
+                    courseConfirmed={courseConfirmed}
+                    levelOrder={level.order ?? index + 1}
+                    conceptOrder={concept.order ?? ci + 1}
+                    initialChunk={videoChunks?.find(vc => vc.levelOrder === (level.order ?? index + 1) && vc.conceptOrder === (concept.order ?? ci + 1))}
+                  />
                 </div>
               </div>
             </div>
@@ -270,7 +277,7 @@ export default function CourseReview({ course }) {
         {activeTab === 'curriculum' && (
           <div className="space-y-3">
             {levels.map((level, i) => (
-              <LevelCard key={i} level={level} index={i} courseConfirmed={confirmed} />
+              <LevelCard key={i} level={level} index={i} courseConfirmed={confirmed} videoChunks={course.videoChunks} />
             ))}
           </div>
         )}

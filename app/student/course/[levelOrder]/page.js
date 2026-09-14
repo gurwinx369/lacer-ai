@@ -3,6 +3,9 @@ import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { verifyAndGetStudentLevel } from '@/lib/student-course';
 import QuizzesList from './QuizzesList';
+import { connectDB } from '@/lib/db';
+import Assignment from '@/models/Assignment';
+import AssignmentAttempt from '@/models/AssignmentAttempt';
 
 export async function generateMetadata({ params }) {
   const resolvedParams = await params;
@@ -13,7 +16,7 @@ export async function generateMetadata({ params }) {
 
 export default async function StudentLevelPage({ params }) {
   const session = await getSession();
-  
+
   if (!session) redirect('/student/login');
   if (session.role !== 'student') redirect('/teacher/dashboard');
 
@@ -33,7 +36,43 @@ export default async function StudentLevelPage({ params }) {
     redirect('/student/dashboard');
   }
 
-  const { level } = result;
+  const { level, course } = result;
+
+  // Fetch assignment status
+  await connectDB();
+  const assignment = await Assignment.findOne({ course: course.id, levelOrder }).lean();
+  let assignmentStatus = { exists: false };
+
+  if (assignment) {
+    const existingAttempt = await AssignmentAttempt.findOne({
+      student: session.userId,
+      assignment: assignment._id,
+    }).lean();
+
+    if (existingAttempt) {
+      assignmentStatus = {
+        exists: true,
+        state: 'COMPLETED',
+        attemptId: existingAttempt._id.toString(),
+        score: existingAttempt.score,
+        total: existingAttempt.totalQuestions,
+        title: assignment.title
+      };
+    } else if (new Date(assignment.availableFrom) > new Date()) {
+      assignmentStatus = {
+        exists: true,
+        state: 'LOCKED',
+        availableFrom: assignment.availableFrom,
+        title: assignment.title
+      };
+    } else {
+      assignmentStatus = {
+        exists: true,
+        state: 'AVAILABLE',
+        title: assignment.title
+      };
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
@@ -58,7 +97,7 @@ export default async function StudentLevelPage({ params }) {
       {/* Main Content */}
       <main className="mx-auto max-w-3xl px-4 py-12">
         <div className="space-y-8">
-          
+
           <div className="border-b border-white/10 pb-8">
             <h1 className="text-3xl font-bold tracking-tight mb-3">{level.title}</h1>
             {level.description && (
@@ -75,7 +114,7 @@ export default async function StudentLevelPage({ params }) {
               </svg>
               Concepts to Learn
             </h2>
-            
+
             <div className="grid gap-4">
               {level.concepts.map((concept) => (
                 <div key={concept.conceptOrder} className="rounded-xl border border-white/10 bg-white/5 p-5">
@@ -97,6 +136,59 @@ export default async function StudentLevelPage({ params }) {
 
           {/* Assessment Quizzes */}
           <QuizzesList levelOrder={level.levelOrder} />
+
+          {/* Level Assignment */}
+          {assignmentStatus.exists && (
+            <div className="mt-12 space-y-4">
+              <h2 className="text-xl font-semibold flex items-center gap-2">
+                <svg className="w-5 h-5 text-fuchsia-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Level Assignment
+              </h2>
+              <div className="rounded-xl border border-white/10 bg-white/5 p-5">
+                <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div>
+                    <h3 className="font-medium text-white">{assignmentStatus.title}</h3>
+                    {assignmentStatus.state === 'LOCKED' && (
+                      <p className="text-sm text-amber-400 mt-1 flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                        Available after {new Date(assignmentStatus.availableFrom).toLocaleDateString()}
+                      </p>
+                    )}
+                    {assignmentStatus.state === 'AVAILABLE' && (
+                      <p className="text-sm text-emerald-400 mt-1 flex items-center gap-1">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Assignment Available
+                      </p>
+                    )}
+                    {assignmentStatus.state === 'COMPLETED' && (
+                      <p className="text-sm text-gray-400 mt-1">
+                        Completed • Score: {assignmentStatus.score}/{assignmentStatus.total}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    {assignmentStatus.state === 'LOCKED' && (
+                      <button disabled className="px-4 py-2 rounded-lg bg-white/5 text-gray-500 font-medium text-sm cursor-not-allowed border border-white/5">
+                        Locked
+                      </button>
+                    )}
+                    {assignmentStatus.state === 'AVAILABLE' && (
+                      <Link href={`/student/course/${levelOrder}/assignment`} className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-sm transition-colors border border-indigo-500/50">
+                        Start Assignment →
+                      </Link>
+                    )}
+                    {assignmentStatus.state === 'COMPLETED' && (
+                      <Link href={`/student/course/${levelOrder}/assignment/results?attemptId=${assignmentStatus.attemptId}`} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/20 text-white font-medium text-sm transition-colors border border-white/10">
+                        View Results
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </main>
     </div>

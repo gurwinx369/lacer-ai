@@ -5,9 +5,9 @@
  * Supplies all history to the pure engine functions; persists results atomically.
  */
 
-import { connectDB } from '@/lib/db';
-import ConceptMastery from '@/models/ConceptMastery';
-import { computeEiIncremental, gradeAttempt, classifyConcept } from './engine';
+import { connectDB } from '../../lib/db.js';
+import ConceptMastery from '../../models/ConceptMastery.js';
+import { computeEiIncremental, gradeAttempt, classifyConcept } from './engine.js';
 
 /**
  * Grade a submitted quiz attempt and update the student's concept mastery.
@@ -59,10 +59,19 @@ export async function gradeAndPersist(studentId, courseId, quizAttemptId, answer
 
     newEiUpdates[eiKey] = { newEi, newN };
 
+    let tMsForGrading;
+    if (ans.responseTimeMs === null) {
+      tMsForGrading = null; // Assignment mode: no timing
+    } else if (ans.responseTimeMs === 0 || ans.responseTimeMs === undefined) {
+      tMsForGrading = 70001; // Skipped or unspecified quiz question
+    } else {
+      tMsForGrading = ans.responseTimeMs;
+    }
+
     allGradedAttempts.push({
       concept: ans.concept,
       tier,
-      graded: gradeAttempt(ans.responseTimeMs ?? 70001, eiMs, ans.isCorrect),
+      graded: gradeAttempt(tMsForGrading, eiMs, ans.isCorrect),
     });
   }
 

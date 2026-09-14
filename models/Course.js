@@ -106,6 +106,19 @@ const CourseSchema = new mongoose.Schema(
       ],
       default: [],
     },
+    // Reference video segments mapped to concepts
+    videoChunks: {
+      type: [
+        {
+          levelOrder: { type: Number, required: true, min: 1 },
+          conceptOrder: { type: Number, required: true, min: 1 },
+          startSeconds: { type: Number, required: true, min: 0 },
+          endSeconds: { type: Number, required: true, min: 0 },
+          _id: false,
+        },
+      ],
+      default: [],
+    },
     // Always set from session — never from client request body.
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,

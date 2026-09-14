@@ -68,9 +68,16 @@ function speedBucket(tMs, ri) {
  * @returns {{ speedBucket: string, rgbFlag: boolean, llrContribution: number|null }}
  */
 export function gradeAttempt(tMs, eiMs, wasCorrect) {
-  const ri     = tMs / eiMs;
-  const bucket = speedBucket(tMs, ri);
-  const rgbFlag = tMs < Math.max(3000, 0.10 * eiMs);
+  let bucket;
+  let rgbFlag = false;
+
+  if (tMs === null) {
+    bucket = 'MEDIUM'; // Neutral speed bucket for untimed assignments
+  } else {
+    const ri = tMs / eiMs;
+    bucket = speedBucket(tMs, ri);
+    rgbFlag = tMs < Math.max(3000, 0.10 * eiMs);
+  }
 
   if (bucket === 'UNATTEMPTED') {
     return { speedBucket: bucket, rgbFlag, llrContribution: null, wasCorrect };
