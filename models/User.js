@@ -9,12 +9,12 @@ const UserSchema = new mongoose.Schema(
     },
     email: {
       type: String,
-      required: [true, 'Email is required'],
-      // Uniqueness enforced via index below — not just Mongoose metadata.
-      unique: true,
       lowercase: true,
       trim: true,
       match: [/^\S+@\S+\.\S+$/, 'Please enter a valid email'],
+      required: function () {
+        return this.role === 'teacher';
+      },
     },
     passwordHash: {
       type: String,
@@ -32,7 +32,21 @@ const UserSchema = new mongoose.Schema(
       required: [true, 'Role is required'],
     },
     // Student-only: institution registration ID shown in teacher analytics
-    registrationId: { type: String, trim: true, default: null },
+    registrationId: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      required: function () {
+        return this.role === 'student';
+      },
+    },
+    program: {
+      type: String,
+      trim: true,
+      required: function () {
+        return this.role === 'student';
+      },
+    },
     // Gamification — updated after each quiz submission
     xp: { type: Number, default: 0, min: 0 },
     streak: { type: Number, default: 0, min: 0 },
@@ -44,9 +58,17 @@ const UserSchema = new mongoose.Schema(
   }
 );
 
-// Explicit unique index on email with case-insensitive collation.
-// This enforces uniqueness at the database level, not just at schema metadata level.
-UserSchema.index({ email: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
+// Explicit sparse unique index on email for teachers
+UserSchema.index(
+  { email: 1 },
+  { unique: true, sparse: true, collation: { locale: 'en', strength: 2 } }
+);
+
+// Explicit sparse unique index on registrationId for students
+UserSchema.index(
+  { registrationId: 1 },
+  { unique: true, sparse: true }
+);
 
 // Prevent the model from being redefined on Next.js hot reload.
 const User = mongoose.models.User || mongoose.model('User', UserSchema);
