@@ -104,22 +104,22 @@ export default function CourseSetupForm({ existingCourse }) {
     <form onSubmit={handleSaveAndProcess} noValidate className="space-y-6">
       {/* Error banner */}
       {error && (
-        <div role="alert" className="rounded-lg bg-red-500/10 border border-red-500/20 px-4 py-3 text-sm text-red-400">
+        <div role="alert" className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600 font-medium">
           {error}
         </div>
       )}
 
       {/* Processing status banner */}
       {processing && (
-        <div role="status" aria-live="polite" className="rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-4 py-3">
+        <div role="status" aria-live="polite" className="rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-3 shadow-sm">
           <div className="flex items-center gap-3">
-            <svg className="h-4 w-4 animate-spin text-indigo-400 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg className="h-5 w-5 animate-spin text-indigo-600 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
             </svg>
             <div>
-              <p className="text-sm font-medium text-indigo-300">Analyzing your syllabus…</p>
-              <p className="text-xs text-indigo-400/70 mt-0.5">
+              <p className="text-sm font-semibold text-indigo-900">Analyzing your syllabus…</p>
+              <p className="text-xs text-indigo-700/80 mt-0.5">
                 Gemini is extracting the curriculum and generating a daily teaching plan. This may take 15–30 seconds.
               </p>
             </div>
@@ -128,43 +128,46 @@ export default function CourseSetupForm({ existingCourse }) {
       )}
 
       {/* Syllabus PDF Upload */}
-      <div>
-        <label htmlFor="syllabusFile" className="block text-sm font-medium text-gray-300 mb-1.5">
-          Syllabus PDF <span className="text-red-400">*</span>
+      <div className="bg-[var(--surface-card)] p-6 rounded-2xl shadow-sm border border-[var(--border)] transition-shadow hover:shadow-md">
+        <label htmlFor="syllabusFile" className="block text-sm font-semibold text-[var(--foreground)] mb-1">
+          Syllabus PDF <span className="text-red-500">*</span>
         </label>
-        <p className="text-xs text-gray-500 mb-2">
+        <p className="text-xs text-[var(--text-muted)] mb-4">
           Upload the course syllabus. Lacer AI uses this to build your curriculum and teaching plan.
         </p>
-        <input
-          id="syllabusFile"
-          type="file"
-          accept=".pdf"
-          onChange={(e) => setSyllabusFile(e.target.files[0] || null)}
-          disabled={isBusy}
-          className="
-            block w-full text-sm text-gray-400
-            file:mr-4 file:py-2 file:px-4
-            file:rounded-lg file:border-0
-            file:text-sm file:font-semibold
-            file:bg-indigo-600 file:text-white
-            hover:file:bg-indigo-500
-            disabled:opacity-50 disabled:cursor-not-allowed
-            transition-all
-          "
-        />
+        <div className="relative group cursor-pointer">
+          <input
+            id="syllabusFile"
+            type="file"
+            accept=".pdf"
+            onChange={(e) => setSyllabusFile(e.target.files[0] || null)}
+            disabled={isBusy}
+            className="
+              block w-full text-sm text-[var(--text-muted)]
+              file:mr-4 file:py-2.5 file:px-4
+              file:rounded-xl file:border-0
+              file:text-sm file:font-semibold
+              file:bg-indigo-50 file:text-indigo-700
+              hover:file:bg-indigo-100
+              disabled:opacity-50 disabled:cursor-not-allowed
+              transition-all file:transition-colors
+              cursor-pointer file:cursor-pointer
+            "
+          />
+        </div>
         {hasExistingSyllabus && !syllabusFile && (
-          <p className="mt-2 text-xs text-gray-400">
-            Previously uploaded: <span className="font-mono text-gray-300">{existingCourse.syllabusFileMeta.originalName}</span>
+          <p className="mt-3 text-xs text-[var(--text-muted)]">
+            Previously uploaded: <span className="font-mono font-medium text-[var(--foreground)] bg-[var(--surface-muted)] px-2 py-1 rounded-md">{existingCourse.syllabusFileMeta.originalName}</span>
           </p>
         )}
       </div>
 
       {/* YouTube URL */}
-      <div>
-        <label htmlFor="youtubeUrl" className="block text-sm font-medium text-gray-300 mb-1.5">
-          Reference YouTube Video <span className="text-red-400">*</span>
+      <div className="bg-[var(--surface-card)] p-6 rounded-2xl shadow-sm border border-[var(--border)] transition-shadow hover:shadow-md">
+        <label htmlFor="youtubeUrl" className="block text-sm font-semibold text-[var(--foreground)] mb-1">
+          Reference YouTube Video <span className="text-red-500">*</span>
         </label>
-        <p className="text-xs text-gray-500 mb-2">
+        <p className="text-xs text-[var(--text-muted)] mb-4">
           Add a reference video. This will be used as learning material for relevant concepts.
         </p>
         <input
@@ -174,21 +177,15 @@ export default function CourseSetupForm({ existingCourse }) {
           onChange={(e) => setYoutubeUrl(e.target.value)}
           disabled={isBusy}
           placeholder={YOUTUBE_HINT}
-          className="
-            w-full rounded-lg border border-white/10 bg-white/5 px-3.5 py-2.5
-            text-sm text-white placeholder:text-gray-600
-            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
-            disabled:opacity-50 disabled:cursor-not-allowed
-            transition-colors duration-150
-          "
+          className="input-premium"
         />
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="mt-2 text-xs text-[var(--text-faint)]">
           Accepted: youtube.com/watch?v=… or youtu.be/…
         </p>
       </div>
 
       {/* Submit */}
-      <div className="flex items-center gap-4 pt-2">
+      <div className="flex items-center gap-4 pt-4">
         <button
           id="course-setup-submit"
           type="submit"
@@ -196,12 +193,10 @@ export default function CourseSetupForm({ existingCourse }) {
           aria-busy={isBusy}
           className="
             flex items-center justify-center gap-2
-            rounded-lg bg-indigo-600 px-6 py-2.5
-            text-sm font-medium text-white
-            hover:bg-indigo-500 active:scale-[0.98]
-            disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100
-            transition-all duration-150
-            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500
+            btn-press-indigo rounded-xl px-8 py-3
+            text-sm font-bold text-white tracking-wide
+            disabled:opacity-60 disabled:cursor-not-allowed
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2
           "
         >
           {isBusy ? (
@@ -210,7 +205,7 @@ export default function CourseSetupForm({ existingCourse }) {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
               </svg>
-              {saving ? 'Uploading…' : 'Processing with Gemini…'}
+              {saving ? 'Uploading…' : 'Processing…'}
             </>
           ) : (
             'Save & Process with Gemini'
@@ -220,9 +215,10 @@ export default function CourseSetupForm({ existingCourse }) {
         {status === 'ready' && !isBusy && (
           <a
             href="/teacher/course/review"
-            className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors duration-150"
+            className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors duration-150 flex items-center gap-1 group"
           >
-            View generated structure →
+            View generated structure
+            <span className="transform group-hover:translate-x-1 transition-transform duration-200">→</span>
           </a>
         )}
       </div>

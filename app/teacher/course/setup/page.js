@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { getSession } from '@/lib/auth';
 import { connectDB } from '@/lib/db';
 import Course from '@/models/Course';
@@ -27,25 +28,26 @@ export default async function CourseSetupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white">
-      <header className="border-b border-white/10 bg-gray-950/80 backdrop-blur-sm sticky top-0 z-10">
+    <div className="min-h-screen">
+      <header className="border-b border-[var(--border)] bg-[var(--background)]/80 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-          <span className="text-base font-bold tracking-tight">
-            Lacer <span className="text-indigo-400">AI</span>
+          <span className="text-base font-bold tracking-tight text-[var(--foreground)]">
+            Lacer <span className="text-indigo-600">AI</span>
           </span>
-          <a
+          <Link
             href="/teacher/dashboard"
-            className="text-sm text-gray-400 hover:text-white transition-colors duration-150"
+            className="group flex items-center gap-1.5 text-sm font-medium text-[var(--text-muted)] hover:text-[var(--foreground)] bg-[var(--surface-card)] px-3.5 py-1.5 rounded-full border border-[var(--border)] shadow-sm hover:shadow active:scale-95 transition-all duration-200"
           >
-            ← Dashboard
-          </a>
+            <span className="transform transition-transform duration-200 group-hover:-translate-x-0.5">←</span>
+            Dashboard
+          </Link>
         </div>
       </header>
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-white">DSA Course Setup</h1>
-          <p className="mt-1 text-sm text-gray-400">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 py-12 stagger-item">
+        <div className="mb-10">
+          <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)]">DSA Course Setup</h1>
+          <p className="mt-2 text-sm text-[var(--text-muted)] max-w-2xl">
             Provide the course syllabus and a reference YouTube video. Lacer AI will extract
             learning levels, concepts, and objectives.
           </p>
